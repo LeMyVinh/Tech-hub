@@ -1,0 +1,316 @@
+using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public sealed class ProductService : IProductService
+{
+    private readonly IProductRepository _productRepository;
+    private readonly ICategoryRepository _categoryRepository;
+    private readonly IBrandRepository _brandRepository;
+    private readonly IProductVariantRepository _variantRepository;
+    private readonly IProductImageRepository _imageRepository;
+
+    public ProductService(
+        IProductRepository productRepository,
+        ICategoryRepository categoryRepository,
+        IBrandRepository brandRepository,
+        IProductVariantRepository variantRepository,
+        IProductImageRepository imageRepository)
+    {
+        _productRepository = productRepository;
+        _categoryRepository = categoryRepository;
+        _brandRepository = brandRepository;
+        _variantRepository = variantRepository;
+        _imageRepository = imageRepository;
+    }
+
+    public async Task<ProductResponse> CreateAsync(CreateProductRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Vui lòng nhập tên sản phẩm.");
+
+        var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
+        if (category == null || category.IsActive != true)
+            throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
+
+        var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+        if (brand == null || brand.IsActive != true)
+            throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+
+        if (request.Variants == null || request.Variants.Count == 0)
+            throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        foreach (var v in request.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(v.VariantName))
+                throw new CatalogException(400, "Tên biến thể không được để trống.");
+            if (string.IsNullOrWhiteSpace(v.Sku))
+                throw new CatalogException(400, "Mã SKU không được để trống.");
+            if (v.Price < 0)
+                throw new CatalogException(400, "Giá sản phẩm phải lớn hơn hoặc bằng 0.");
+            if (v.StockQuantity < 0)
+                throw new CatalogException(400, "Số lượng tồn kho phải lớn hơn hoặc bằng 0.");
+
+            var skuTrimmed = v.Sku.Trim();
+            if (await _productRepository.ExistsBySkuAsync(skuTrimmed))
+                throw new CatalogException(400, "Mã SKU đã tồn tại trong hệ thống.");
+        }
+
+        var product = new Product
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description,
+            CategoryId = request.CategoryId,
+            BrandId = request.BrandId,
+            Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _productRepository.AddAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        var variantEntities = request.Variants.Select(v => new ProductVariant
+        {
+            ProductId = product.Id,
+            VariantName = v.VariantName.Trim(),
+            Sku = v.Sku.Trim(),
+            Price = v.Price,
+            StockQuantity = v.StockQuantity,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
+
+        await _variantRepository.AddRangeAsync(variantEntities);
+
+        if (request.Images != null && request.Images.Count > 0)
+        {
+            var imageEntities = request.Images.Select(img => new ProductImage
+            {
+                ProductId = product.Id,
+                ImageUrl = img.ImageUrl.Trim(),
+                IsPrimary = img.IsPrimary
+            }).ToList();
+
+            await _imageRepository.AddRangeAsync(imageEntities);
+        }
+
+        await _productRepository.SaveChangesAsync();
+
+        var createdProduct = await _productRepository.GetWithDetailsAsync(product.Id, includeInactive: true);
+        return MapToProductResponse(createdProduct!);
+    }
+
+    public async Task<ProductResponse> UpdateAsync(int id, UpdateProductRequest request)
+    {
+        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive: true);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Vui lòng nhập tên sản phẩm.");
+
+        var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
+        if (category == null || category.IsActive != true)
+            throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
+
+        var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+        if (brand == null || brand.IsActive != true)
+            throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+
+        if (request.Variants == null || request.Variants.Count == 0)
+            throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        foreach (var v in request.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(v.VariantName))
+                throw new CatalogException(400, "Tên biến thể không được để trống.");
+            if (string.IsNullOrWhiteSpace(v.Sku))
+                throw new CatalogException(400, "Mã SKU không được để trống.");
+            if (v.Price < 0)
+                throw new CatalogException(400, "Giá sản phẩm phải lớn hơn hoặc bằng 0.");
+            if (v.StockQuantity < 0)
+                throw new CatalogException(400, "Số lượng tồn kho phải lớn hơn hoặc bằng 0.");
+
+            var skuTrimmed = v.Sku.Trim();
+            if (await _productRepository.ExistsBySkuAsync(skuTrimmed, excludeVariantId: v.Id))
+                throw new CatalogException(400, "Mã SKU đã tồn tại trong hệ thống.");
+        }
+
+        product.Name = request.Name.Trim();
+        product.Description = request.Description;
+        product.CategoryId = request.CategoryId;
+        product.BrandId = request.BrandId;
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            product.Status = request.Status.Trim();
+        }
+
+        // Sync Variants
+        var existingVariants = product.ProductVariants.ToList();
+        var requestVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
+
+        // Remove variants not in request
+        var toRemoveVariants = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
+        if (toRemoveVariants.Count > 0)
+        {
+            await _variantRepository.DeleteRangeAsync(toRemoveVariants);
+        }
+
+        // Add or Update variants
+        foreach (var vDto in request.Variants)
+        {
+            if (vDto.Id.HasValue)
+            {
+                var existing = existingVariants.FirstOrDefault(x => x.Id == vDto.Id.Value);
+                if (existing != null)
+                {
+                    existing.VariantName = vDto.VariantName.Trim();
+                    existing.Sku = vDto.Sku.Trim();
+                    existing.Price = vDto.Price;
+                    existing.StockQuantity = vDto.StockQuantity;
+                    await _variantRepository.UpdateAsync(existing);
+                }
+            }
+            else
+            {
+                var newVar = new ProductVariant
+                {
+                    ProductId = product.Id,
+                    VariantName = vDto.VariantName.Trim(),
+                    Sku = vDto.Sku.Trim(),
+                    Price = vDto.Price,
+                    StockQuantity = vDto.StockQuantity,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _variantRepository.AddAsync(newVar);
+            }
+        }
+
+        // Sync Images
+        var existingImages = product.ProductImages.ToList();
+        var requestImageIds = (request.Images ?? new List<UpdateProductImageDto>())
+            .Where(img => img.Id.HasValue).Select(img => img.Id!.Value).ToHashSet();
+
+        var toRemoveImages = existingImages.Where(img => !requestImageIds.Contains(img.Id)).ToList();
+        if (toRemoveImages.Count > 0)
+        {
+            await _imageRepository.DeleteRangeAsync(toRemoveImages);
+        }
+
+        if (request.Images != null)
+        {
+            foreach (var imgDto in request.Images)
+            {
+                if (imgDto.Id.HasValue)
+                {
+                    var existingImg = existingImages.FirstOrDefault(x => x.Id == imgDto.Id.Value);
+                    if (existingImg != null)
+                    {
+                        existingImg.ImageUrl = imgDto.ImageUrl.Trim();
+                        existingImg.IsPrimary = imgDto.IsPrimary;
+                        await _imageRepository.UpdateAsync(existingImg);
+                    }
+                }
+                else
+                {
+                    var newImg = new ProductImage
+                    {
+                        ProductId = product.Id,
+                        ImageUrl = imgDto.ImageUrl.Trim(),
+                        IsPrimary = imgDto.IsPrimary
+                    };
+                    await _imageRepository.AddAsync(newImg);
+                }
+            }
+        }
+
+        await _productRepository.UpdateAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        var updatedProduct = await _productRepository.GetWithDetailsAsync(id, includeInactive: true);
+        return MapToProductResponse(updatedProduct!);
+    }
+
+    public async Task<string> DeleteAsync(int id)
+    {
+        var product = await _productRepository.GetByIdAsync(id, includeInactive: true);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        var hasOrders = await _productRepository.HasOrdersAsync(id);
+        product.Status = "Inactive";
+        await _productRepository.UpdateAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        if (hasOrders)
+        {
+            return "Không thể xoá sản phẩm đã phát sinh đơn hàng, chỉ có thể ẩn.";
+        }
+
+        return "Đã chuyển sản phẩm sang trạng thái ẩn.";
+    }
+
+    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false)
+    {
+        if (filter.MinPrice.HasValue && filter.MaxPrice.HasValue && filter.MinPrice > filter.MaxPrice)
+            throw new CatalogException(400, "Khoảng giá không hợp lệ.");
+
+        return await _productRepository.SearchAsync(filter, includeInactive);
+    }
+
+    public async Task<ProductDetailResponse> GetDetailAsync(int id, bool includeInactive = false)
+    {
+        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        if (!includeInactive && product.Status != "Active")
+            throw new CatalogException(400, "Sản phẩm hiện không còn kinh doanh.");
+
+        var approvedReviews = product.Reviews
+            .Where(r => r.Status == "Approved")
+            .Select(r => new ApprovedReviewSummaryResponse(
+                r.Id,
+                r.User.FullName,
+                r.Rating,
+                r.Comment,
+                r.CreatedAt
+            ))
+            .ToList();
+
+        var avgRating = approvedReviews.Count > 0
+            ? Math.Round(approvedReviews.Average(r => (double)r.Rating), 1)
+            : 0.0;
+
+        return new ProductDetailResponse(
+            product.Id,
+            product.Name,
+            product.Description,
+            product.CategoryId,
+            product.Category.Name,
+            product.BrandId,
+            product.Brand.Name,
+            product.Status,
+            product.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
+            product.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            avgRating,
+            approvedReviews
+        );
+    }
+
+    private static ProductResponse MapToProductResponse(Product p)
+    {
+        return new ProductResponse(
+            p.Id,
+            p.Name,
+            p.Description,
+            p.CategoryId,
+            p.Category.Name,
+            p.BrandId,
+            p.Brand.Name,
+            p.Status,
+            p.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
+            p.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            p.CreatedAt
+        );
+    }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "oDS3kdH9LS8=",
+  "success": true,
+  "projectFilePath": "/Users/lemyvinh/Agent_1/Projects/ECommerce/backend/ECommerce.Application/ECommerce.Application.csproj",
+  "expectedPackageFiles": [
+    "/Users/lemyvinh/.nuget/packages/bcrypt.net-next/4.2.0/bcrypt.net-next.4.2.0.nupkg.sha512"
+  ],
+  "logs": []
+}
