@@ -1,0 +1,27 @@
+.aider*
+# macOS
+.DS_Store
+
+# .NET
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+
+# Rider
+.idea/
+
+# Node
+**/node_modules/
+
+# Angular
+**/dist/
+**/.angular/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*

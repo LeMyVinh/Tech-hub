@@ -1,0 +1,29 @@
+<div class="auth-wrapper">
+  <section class="auth-card">
+    <div class="tabs" role="tablist">
+      <a routerLink="/auth/login">Đăng nhập</a>
+      <a class="active" routerLink="/auth/register">Đăng ký</a>
+    </div>
+
+    <div class="heading">
+      <h2>Tạo tài khoản</h2>
+      <p>Bắt đầu mua sắm cùng TechHub.</p>
+    </div>
+
+    @if (error()) {
+      <div class="feedback error">{{ error() }}</div>
+    }
+    @if (message()) {
+      <div class="feedback success">{{ message() }}</div>
+    }
+
+    <form (ngSubmit)="submit()">
+      <label>Họ và tên<input name="fullName" [(ngModel)]="register.fullName" required /></label>
+      <label>Email<input type="email" name="email" [(ngModel)]="register.email" required /></label>
+      <label>Số điện thoại<input type="tel" name="phone" [(ngModel)]="register.phone" /></label>
+      <label>Mật khẩu<input type="password" name="password" [(ngModel)]="register.password" required minlength="6" /></label>
+      <label>Xác nhận mật khẩu<input type="password" name="confirmPassword" [(ngModel)]="register.confirmPassword" required /></label>
+      <button class="primary-button" type="submit" [disabled]="loading()">Tạo tài khoản</button>
+    </form>
+  </section>
+</div>

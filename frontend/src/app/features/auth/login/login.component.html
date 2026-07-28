@@ -1,0 +1,30 @@
+<div class="auth-wrapper">
+  <section class="auth-card">
+    <div class="tabs" role="tablist">
+      <a class="active" routerLink="/auth/login">Đăng nhập</a>
+      <a routerLink="/auth/register">Đăng ký</a>
+    </div>
+
+    <div class="heading">
+      <h2>Chào mừng trở lại</h2>
+      <p>Nhập thông tin đăng nhập của bạn.</p>
+    </div>
+
+    @if (error()) {
+      <div class="feedback error">{{ error() }}</div>
+    }
+
+    <form (ngSubmit)="submit()">
+      <label>
+        Email
+        <input type="email" name="email" [(ngModel)]="login.email" required />
+      </label>
+      <label>
+        Mật khẩu
+        <input type="password" name="password" [(ngModel)]="login.password" required />
+      </label>
+      <a class="link-button" routerLink="/auth/forgot-password">Quên mật khẩu?</a>
+      <button class="primary-button" type="submit" [disabled]="loading()">Đăng nhập</button>
+    </form>
+  </section>
+</div>

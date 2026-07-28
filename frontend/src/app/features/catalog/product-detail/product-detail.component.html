@@ -1,0 +1,127 @@
+<div class="detail-page">
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Đang tải thông tin sản phẩm...</p>
+    </div>
+  } @else if (error()) {
+    <div class="error-box">
+      <span class="error-icon"><span class="material-icons">warning</span></span>
+      <h2>{{ error() }}</h2>
+      <button class="btn-back" (click)="goBack()">← Quay lại danh sách</button>
+    </div>
+  } @else if (product(); as p) {
+    <button class="btn-breadcrumb" (click)="goBack()">← Quay lại danh sách sản phẩm</button>
+
+    <div class="detail-grid">
+      <div class="gallery-col">
+        <div class="main-image">
+          <img
+            [src]="p.images[selectedImageIndex()]?.imageUrl || p.images[0]?.imageUrl || 'https://via.placeholder.com/500x400'"
+            [alt]="p.name"
+          />
+        </div>
+        @if (p.images.length > 1) {
+          <div class="thumb-list">
+            @for (img of p.images; track img.id; let idx = $index) {
+              <img
+                [src]="img.imageUrl"
+                [class.active]="selectedImageIndex() === idx"
+                (click)="selectImage(idx)"
+                [alt]="'Ảnh ' + (idx + 1)"
+              />
+            }
+          </div>
+        }
+      </div>
+
+      <div class="info-col">
+        <div class="badges">
+          <span class="tag cat">{{ p.categoryName }}</span>
+          <span class="tag brand">{{ p.brandName }}</span>
+        </div>
+        <h1>{{ p.name }}</h1>
+
+        <div class="rating-summary">
+          <span class="stars">
+            @for (s of getStarArray(p.avgRating); track $index) {
+              <span [class.filled]="s === 1">★</span>
+            }
+          </span>
+          <span class="avg">{{ p.avgRating.toFixed(1) }}</span>
+          <span class="review-count">({{ p.reviews.length }} đánh giá)</span>
+        </div>
+
+        <div class="variant-section">
+          <h4>Lựa chọn biến thể:</h4>
+          <div class="variant-pills">
+            @for (v of p.variants; track v.id) {
+              <button
+                class="variant-pill"
+                [class.selected]="selectedVariant()?.id === v.id"
+                [class.out-of-stock]="v.stockQuantity <= 0"
+                (click)="selectVariant(v)"
+              >
+                {{ v.variantName }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (selectedVariant(); as cur) {
+          <div class="variant-price-box">
+            <span class="price">{{ formatVnd(cur.price) }}</span>
+            <span class="sku">SKU: {{ cur.sku }}</span>
+            <span class="stock" [class.out]="cur.stockQuantity <= 0">
+              {{ cur.stockQuantity > 0 ? 'Còn hàng (' + cur.stockQuantity + ')' : 'Hết hàng' }}
+            </span>
+          </div>
+        }
+
+        <div class="action-buttons">
+          <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0" (click)="addToCart()"></button>
+            <span class="material-icons">shopping_cart</span> Thêm vào giỏ hàng
+          <button class="btn-wishlist"><span class="material-icons">favorite</span> Yêu thích</button>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="product-tabs">
+      <div class="tab-header">
+        <button [class.active]="activeTab() === 'description'" (click)="activeTab.set('description')">Mô tả sản phẩm</button>
+        <button [class.active]="activeTab() === 'reviews'" (click)="activeTab.set('reviews')">Đánh giá ({{ p.reviews.length }})</button>
+      </div>
+
+      <div class="tab-content">
+        @if (activeTab() === 'description') {
+          <div class="description-tab">
+            <p>{{ p.description || 'Chưa có mô tả chi tiết cho sản phẩm này.' }}</p>
+          </div>
+        } @else {
+          <div class="reviews-tab">
+            @if (p.reviews.length === 0) {
+              <p class="no-reviews">Chưa có đánh giá nào cho sản phẩm này.</p>
+            } @else {
+              @for (review of p.reviews; track review.id) {
+                <div class="review-item">
+                  <div class="review-header">
+                    <span class="reviewer-name">{{ review.userName }}</span>
+                    <span class="review-stars">
+                      @for (s of getStarArray(review.rating); track $index) {
+                        <span [class.filled]="s === 1">★</span>
+                      }
+                    </span>
+                    <span class="review-date">{{ review.createdAt | date:'dd/MM/yyyy' }}</span>
+                  </div>
+                  @if (review.comment) {
+                    <p class="review-comment">{{ review.comment }}</p>
+                  }
+                </div>
+              }
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

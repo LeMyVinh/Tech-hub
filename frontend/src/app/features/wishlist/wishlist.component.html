@@ -1,0 +1,71 @@
+<div class="wishlist-container">
+  <h1>
+    <span class="material-icons">favorite</span>
+    Danh sách yêu thích
+  </h1>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <span>Đang tải...</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="toast toast--error">{{ error() }}</div>
+  }
+
+  @if (message()) {
+    <div class="toast toast--success">{{ message() }}</div>
+  }
+
+  @if (!loading() && wishlist() && wishlist()!.items.length === 0) {
+    <div class="empty-state">
+      <span class="material-icons empty-icon">favorite</span>
+      <h3 class="empty-title">Chưa có sản phẩm yêu thích nào</h3>
+      <p class="empty-text">Hãy duyệt sản phẩm và thêm vào danh sách yêu thích</p>
+      <a routerLink="/catalog/products" class="btn-primary">
+        <span class="material-icons">arrow_back</span>
+        Tiếp tục mua sắm
+      </a>
+    </div>
+  }
+
+  @if (wishlist() && wishlist()!.items.length > 0) {
+    <div class="wishlist-items">
+      @for (item of wishlist()!.items; track item.id) {
+        <div class="wishlist-item">
+          <div class="item-image" (click)="viewProduct(item.productId)">
+            @if (item.primaryImageUrl) {
+              <img [src]="item.primaryImageUrl" [alt]="item.productName">
+            } @else {
+              <div class="no-image">
+                <span class="material-icons">image</span>
+              </div>
+            }
+          </div>
+          <div class="item-info">
+            <h3 (click)="viewProduct(item.productId)">{{ item.productName }}</h3>
+            <p class="price">
+              @if (item.minPrice === item.maxPrice) {
+                {{ formatVnd(item.minPrice) }}
+              } @else {
+                {{ formatVnd(item.minPrice) }} - {{ formatVnd(item.maxPrice) }}
+              }
+            </p>
+          </div>
+          <div class="item-actions">
+            <button class="btn-move-cart" (click)="moveToCart(item)">
+              <span class="material-icons">add_shopping_cart</span>
+              Thêm vào giỏ
+            </button>
+            <button class="btn-remove" (click)="removeFromWishlist(item)">
+              <span class="material-icons">delete</span>
+              Xóa
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

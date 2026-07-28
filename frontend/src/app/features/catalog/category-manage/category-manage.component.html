@@ -1,0 +1,89 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị Catalog TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn active" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Danh sách Danh mục Sản phẩm</h3>
+      <button class="btn-add-new" (click)="openCreate()"><span class="material-icons">add</span> Thêm danh mục mới</button>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Tên danh mục</th>
+            <th>Danh mục cha</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (cat of categories(); track cat.id) {
+            <tr>
+              <td>#{{ cat.id }}</td>
+              <td class="font-bold">{{ cat.name }}</td>
+              <td>{{ cat.parentName || '— (Danh mục gốc)' }}</td>
+              <td>
+                <span class="status-badge" [class.inactive]="!cat.isActive">
+                  {{ cat.isActive ? 'Hoạt động' : 'Ẩn' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn-action edit" (click)="openEdit(cat)"><span class="material-icons">edit</span> Sửa</button>
+                <button class="btn-action delete" (click)="deleteCategory(cat.id)"><span class="material-icons">block</span> Ngừng dùng</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (showModal) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <button class="btn-close-modal" (click)="closeModal()">✕</button>
+      <h3>{{ editingId ? 'Sửa Danh mục' : 'Thêm Danh mục Mới' }}</h3>
+
+      <form (ngSubmit)="submitForm()" class="admin-form">
+        <label>
+          Tên danh mục *
+          <input type="text" [(ngModel)]="form.name" name="catName" required />
+        </label>
+        <label>
+          Danh mục cha (nếu có)
+          <select [(ngModel)]="form.parentId" name="catParent">
+            <option [ngValue]="null">— Danh mục gốc —</option>
+            @for (c of categories(); track c.id) {
+              @if (c.id !== editingId) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            }
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button type="submit" class="primary-button" [disabled]="loading()">Lưu danh mục</button>
+          <button type="button" class="secondary-button" (click)="closeModal()">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

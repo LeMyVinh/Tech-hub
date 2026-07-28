@@ -1,0 +1,110 @@
+<div class="checkout-container">
+  <h1>
+    <span class="material-icons">payment</span>
+    Thanh toán
+  </h1>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <span>Đang tải...</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="toast toast--error">{{ error() }}</div>
+  }
+
+  @if (cart() && addresses().length > 0) {
+    <div class="checkout-content">
+      <div class="checkout-main">
+        <section class="section">
+          <h2>
+            <span class="material-icons">location_on</span>
+            Địa chỉ giao hàng
+          </h2>
+          @for (addr of addresses(); track addr.id) {
+            <label class="address-option" [class.selected]="selectedAddressId === addr.id">
+              <input type="radio" [value]="addr.id" [(ngModel)]="selectedAddressId">
+              <div class="address-info">
+                <strong>{{ addr.recipientName }}</strong> - {{ addr.phone }}
+                <p>{{ addr.detailAddress }}, {{ addr.ward }}, {{ addr.district }}, {{ addr.province }}</p>
+              </div>
+              @if (addr.isDefault) {
+                <span class="default-badge">Mặc định</span>
+              }
+            </label>
+          }
+        </section>
+
+        <section class="section">
+          <h2>
+            <span class="material-icons">local_shipping</span>
+            Phương thức vận chuyển
+          </h2>
+          <div class="shipping-options">
+            <label class="shipping-option" [class.selected]="shippingMethod === 'Standard'">
+              <input type="radio" value="Standard" [(ngModel)]="shippingMethod">
+              <span>Giao hàng tiêu chuẩn (3-5 ngày)</span>
+              <span class="price">Miễn phí</span>
+            </label>
+            <label class="shipping-option" [class.selected]="shippingMethod === 'Express'">
+              <input type="radio" value="Express" [(ngModel)]="shippingMethod">
+              <span>Giao hàng nhanh (1-2 ngày)</span>
+              <span class="price">30.000₫</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>
+            <span class="material-icons">receipt</span>
+            Ghi chú đơn hàng
+          </h2>
+          <textarea [(ngModel)]="note" placeholder="Ghi chú cho đơn hàng (tùy chọn)" rows="3"></textarea>
+        </section>
+      </div>
+
+      <div class="checkout-sidebar">
+        <h2>
+          <span class="material-icons">inventory_2</span>
+          Đơn hàng của bạn
+        </h2>
+        <div class="order-items">
+          @for (item of cart()!.items; track item.id) {
+            <div class="order-item">
+              <div class="item-info">
+                <span class="name">{{ item.productName }}</span>
+                <span class="variant">{{ item.variantName }} x {{ item.quantity }}</span>
+              </div>
+              <span class="price">{{ formatVnd(item.subtotal) }}</span>
+            </div>
+          }
+        </div>
+        <div class="order-summary">
+          <div class="row">
+            <span>Tạm tính:</span>
+            <span>{{ formatVnd(cart()!.totalAmount) }}</span>
+          </div>
+          <div class="row">
+            <span>Phí vận chuyển:</span>
+            <span>{{ shippingMethod === 'Express' ? '30.000₫' : 'Miễn phí' }}</span>
+          </div>
+          <div class="row total">
+            <span>Tổng cộng:</span>
+            <span>{{ formatVnd(cart()!.totalAmount + (shippingMethod === 'Express' ? 30000 : 0)) }}</span>
+          </div>
+        </div>
+        <button class="btn-submit" (click)="submitOrder()" [disabled]="loading() || !selectedAddressId">
+          @if (loading()) {
+            <span class="material-icons">hourglass_empty</span>
+            Đang xử lý...
+          } @else {
+            <span class="material-icons">check_circle</span>
+            Đặt hàng
+          }
+        </button>
+      </div>
+    </div>
+  }
+</div>

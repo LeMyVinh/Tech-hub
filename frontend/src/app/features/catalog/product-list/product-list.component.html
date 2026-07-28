@@ -1,0 +1,119 @@
+<section class="catalog-page">
+  <section class="storefront-hero">
+    <div class="hero-content">
+      <h1>THIẾT BỊ CÔNG NGHỆ CHÍNH HÃNG</h1>
+      <p>Khám phá Laptop, Linh kiện PC, Màn hình &amp; Phụ kiện cao cấp với thông số minh bạch nhất.</p>
+    </div>
+  </section>
+
+  <section class="catalog-section">
+    <div class="filter-panel">
+      <div class="filter-row">
+        <div class="search-box">
+          <span class="search-icon"><span class="material-icons">search</span></span>
+          <input
+            type="text"
+            placeholder="Tìm kiếm sản phẩm (vd: Dell XPS, Bàn phím...)"
+            [(ngModel)]="searchKeyword"
+            (keyup.enter)="applyFilter()"
+          />
+        </div>
+
+        <div class="filter-select">
+          <label>Danh mục</label>
+          <select [(ngModel)]="selectedCategoryId" (change)="applyFilter()">
+            <option [ngValue]="null">Tất cả danh mục</option>
+            @for (cat of categories(); track cat.id) {
+              <option [ngValue]="cat.id">{{ cat.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-select">
+          <label>Thương hiệu</label>
+          <select [(ngModel)]="selectedBrandId" (change)="applyFilter()">
+            <option [ngValue]="null">Tất cả thương hiệu</option>
+            @for (brand of brands(); track brand.id) {
+              <option [ngValue]="brand.id">{{ brand.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="filter-select">
+          <label>Sắp xếp</label>
+          <select [(ngModel)]="sortOption" (change)="applyFilter()">
+            <option value="newest">Mới nhất</option>
+            <option value="price_asc">Giá: Thấp đến Cao</option>
+            <option value="price_desc">Giá: Cao đến Thấp</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-row price-range-row">
+        <div class="price-inputs">
+          <span>Khoảng giá (đ):</span>
+          <input type="number" placeholder="Từ" [(ngModel)]="minPrice" />
+          <span>-</span>
+          <input type="number" placeholder="Đến" [(ngModel)]="maxPrice" />
+        </div>
+        <div class="btn-group-filter">
+          <button class="btn-primary-sm" (click)="applyFilter()">Lọc sản phẩm</button>
+          <button class="btn-secondary-sm" (click)="resetFilter()">Đặt lại</button>
+        </div>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-spinner-box">
+        <div class="spinner"></div>
+        <p>Đang tải dữ liệu gian hàng...</p>
+      </div>
+    } @else if (products()?.items?.length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon"><span class="material-icons">inventory_2</span></span>
+        <h3>Không tìm thấy sản phẩm nào</h3>
+        <p>Rất tiếc, không có sản phẩm nào phù hợp với bộ lọc hiện tại của bạn.</p>
+        <button class="btn-primary-sm" (click)="resetFilter()">Xem tất cả sản phẩm</button>
+      </div>
+    } @else {
+      <div class="product-grid">
+        @for (p of products()?.items; track p.id) {
+          <div class="product-card" (click)="viewDetail(p.id)">
+            <div class="card-media">
+              <img
+                [src]="p.primaryImageUrl || 'https://via.placeholder.com/300x200?text=TechHub+Product'"
+                [alt]="p.name"
+              />
+              <div class="card-badges">
+                <span class="category-tag">{{ p.categoryName }}</span>
+                <span class="brand-tag">{{ p.brandName }}</span>
+              </div>
+            </div>
+            <div class="card-content">
+              <h3 class="product-title" [title]="p.name">{{ p.name }}</h3>
+              <div class="price-block">
+                @if (p.minPrice === p.maxPrice) {
+                  <span class="current-price">{{ formatVnd(p.minPrice) }}</span>
+                } @else {
+                  <span class="current-price">{{ formatVnd(p.minPrice) }} - {{ formatVnd(p.maxPrice) }}</span>
+                }
+              </div>
+              <button class="btn-view-detail">
+                <span>Xem chi tiết</span>
+                <span class="arrow">→</span>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (products(); as res) {
+        <div class="pagination-bar">
+          <button [disabled]="currentPage === 1" (click)="goToPage(currentPage - 1)">‹ Trước</button>
+          <span class="page-info">Trang {{ res.page }} / {{ Math.ceil(res.totalCount / res.pageSize) || 1 }}</span>
+          <button [disabled]="currentPage * res.pageSize >= res.totalCount" (click)="goToPage(currentPage + 1)">Sau ›</button>
+        </div>
+      }
+    }
+  </section>
+</section>

@@ -1,0 +1,88 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị Catalog TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn active" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Danh sách Thương hiệu</h3>
+      <button class="btn-add-new" (click)="openCreate()"><span class="material-icons">add</span> Thêm thương hiệu mới</button>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Logo</th>
+            <th>Tên thương hiệu</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of brands(); track b.id) {
+            <tr>
+              <td>#{{ b.id }}</td>
+              <td>
+                @if (b.logoUrl) {
+                  <img class="brand-logo-img" [src]="b.logoUrl" [alt]="b.name" />
+                } @else {
+                  <span class="no-logo">Không logo</span>
+                }
+              </td>
+              <td class="font-bold">{{ b.name }}</td>
+              <td>
+                <span class="status-badge" [class.inactive]="!b.isActive">
+                  {{ b.isActive ? 'Hoạt động' : 'Ẩn' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn-action edit" (click)="openEdit(b)"><span class="material-icons">edit</span> Sửa</button>
+                <button class="btn-action delete" (click)="deleteBrand(b.id)"><span class="material-icons">block</span> Ngừng dùng</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (showModal) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <button class="btn-close-modal" (click)="closeModal()">✕</button>
+      <h3>{{ editingId ? 'Sửa Thương hiệu' : 'Thêm Thương hiệu Mới' }}</h3>
+
+      <form (ngSubmit)="submitForm()" class="admin-form">
+        <label>
+          Tên thương hiệu *
+          <input type="text" [(ngModel)]="form.name" name="brandName" required />
+        </label>
+        <label>
+          Logo URL
+          <input type="text" [(ngModel)]="form.logoUrl" name="brandLogo" placeholder="https://..." />
+        </label>
+        <div class="modal-actions">
+          <button type="submit" class="primary-button" [disabled]="loading()">Lưu thương hiệu</button>
+          <button type="button" class="secondary-button" (click)="closeModal()">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

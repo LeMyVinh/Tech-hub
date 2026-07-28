@@ -1,0 +1,152 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị Catalog TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn active" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Danh sách Sản phẩm</h3>
+      <button class="btn-add-new" (click)="openCreate()"><span class="material-icons">add</span> Thêm sản phẩm mới</button>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Hình ảnh</th>
+            <th>Tên sản phẩm</th>
+            <th>Danh mục</th>
+            <th>Thương hiệu</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (prod of products()?.items; track prod.id) {
+            <tr>
+              <td>#{{ prod.id }}</td>
+              <td>
+                <img class="thumb-img"
+                  [src]="prod.primaryImageUrl || 'https://via.placeholder.com/50'"
+                  [alt]="prod.name" />
+              </td>
+              <td class="font-bold">{{ prod.name }}</td>
+              <td><span class="pill">{{ prod.categoryName }}</span></td>
+              <td><span class="pill brand">{{ prod.brandName }}</span></td>
+              <td>
+                <span class="status-badge" [class.inactive]="prod.status !== 'Active'">
+                  {{ prod.status === 'Active' ? 'Kinh doanh' : 'Ẩn / Ngừng' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn-action edit" (click)="openEdit(prod.id)"><span class="material-icons">edit</span> Sửa</button>
+                <button class="btn-action delete" (click)="deleteProduct(prod.id)"><span class="material-icons">block</span> Ẩn/Xóa</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (showModal) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-card wide" (click)="$event.stopPropagation()">
+      <button class="btn-close-modal" (click)="closeModal()">✕</button>
+      <h3>{{ editingProductId ? 'Cập nhật Sản phẩm' : 'Thêm Sản phẩm Mới' }}</h3>
+
+      <form (ngSubmit)="submitForm()" class="admin-form">
+        <div class="form-row">
+          <label class="flex-2">
+            Tên sản phẩm *
+            <input type="text" [(ngModel)]="productForm.name" name="prodName" required />
+          </label>
+          <label>
+            Trạng thái
+            <select [(ngModel)]="productForm.status" name="prodStatus">
+              <option value="Active">Active (Kinh doanh)</option>
+              <option value="Inactive">Inactive (Ẩn / Ngừng)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Danh mục *
+            <select [(ngModel)]="productForm.categoryId" name="prodCategory" required>
+              @for (c of categories(); track c.id) {
+                <option [value]="c.id">{{ c.name }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Thương hiệu *
+            <select [(ngModel)]="productForm.brandId" name="prodBrand" required>
+              @for (b of brands(); track b.id) {
+                <option [value]="b.id">{{ b.name }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Mô tả sản phẩm
+          <textarea [(ngModel)]="productForm.description" name="prodDesc" rows="3"></textarea>
+        </label>
+
+        <div class="sub-section">
+          <div class="sub-header">
+            <h4>Biến thể sản phẩm (Variant Name, SKU, Price, Stock) *</h4>
+            <button type="button" class="btn-add-row" (click)="addVariantRow()">+ Thêm dòng biến thể</button>
+          </div>
+          @for (v of productForm.variants; track $index; let idx = $index) {
+            <div class="variant-inputs-row">
+              <input type="text" placeholder="Tên biến thể (vd: 16GB RAM - Bạc)" [(ngModel)]="v.variantName" [name]="'varName' + idx" required />
+              <input type="text" placeholder="Mã SKU (vd: DELL-XPS-16)" [(ngModel)]="v.sku" [name]="'varSku' + idx" required />
+              <input type="number" placeholder="Giá (VND)" [(ngModel)]="v.price" [name]="'varPrice' + idx" required />
+              <input type="number" placeholder="Số lượng kho" [(ngModel)]="v.stockQuantity" [name]="'varStock' + idx" required />
+              <button type="button" class="btn-del-row" (click)="removeVariantRow(idx)">✕</button>
+            </div>
+          }
+        </div>
+
+        <div class="sub-section">
+          <div class="sub-header">
+            <h4>Hình ảnh sản phẩm (URL công khai)</h4>
+            <button type="button" class="btn-add-row" (click)="addImageRow()">+ Thêm URL ảnh</button>
+          </div>
+          @for (img of productForm.images; track $index; let idx = $index) {
+            <div class="image-inputs-row">
+              <input type="text" placeholder="Đường dẫn URL ảnh (http...)" [(ngModel)]="img.imageUrl" [name]="'imgUrl' + idx" />
+              <label class="primary-checkbox">
+                <input type="checkbox" [checked]="img.isPrimary" (change)="setPrimaryImage(idx)" /> Ảnh đại diện
+              </label>
+              <button type="button" class="btn-del-row" (click)="removeImageRow(idx)">✕</button>
+            </div>
+          }
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="primary-button" [disabled]="loading()">Lưu thông tin sản phẩm</button>
+          <button type="button" class="secondary-button" (click)="closeModal()">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

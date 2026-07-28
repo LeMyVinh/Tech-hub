@@ -1,0 +1,42 @@
+<header class="app-header">
+  <div class="header-container">
+    <a class="brand-logo" routerLink="/catalog">
+      <span class="logo-icon"><span class="material-icons">flash_on</span></span>
+      <span class="logo-text">TECH<span class="highlight">HUB</span></span>
+      <span class="badge-tag">PLATFORM</span>
+    </a>
+
+    <nav class="nav-links">
+      <a class="nav-item" routerLink="/catalog" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+        <span class="icon"><span class="material-icons">shopping_cart</span></span> Gian hàng
+      </a>
+
+      @if (session?.user?.role === 'Admin') {
+        <a class="nav-item admin-btn" routerLink="/admin/products" routerLinkActive="active">
+          <span class="icon"><span class="material-icons">settings</span></span> Quản trị Admin
+        </a>
+      }
+    </nav>
+
+    <div class="user-actions">
+      @if (session; as userSession) {
+        <div class="user-pill">
+          <span class="avatar-circle">{{ userSession.user.fullName[0] }}</span>
+          <div class="user-info">
+            <span class="user-name">{{ userSession.user.fullName }}</span>
+            <span class="user-role-badge" [class.admin]="userSession.user.role === 'Admin'">
+              {{ userSession.user.role }}
+            </span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-logout" title="Đăng xuất" (click)="logoutClick.emit()">
+          <span class="material-icons">logout</span>
+        </button>
+      } @else {
+        <a routerLink="/auth/login" class="btn-login-header">
+          Đăng nhập / Đăng ký
+        </a>
+      }
+    </div>
+  </div>
+</header>

@@ -1,0 +1,91 @@
+<div class="cart-container">
+  <h1>
+    <span class="material-icons">shopping_cart</span>
+    Giỏ hàng
+  </h1>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <span>Đang tải...</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="toast toast--error">{{ error() }}</div>
+  }
+
+  @if (!loading() && cart() && cart()!.items.length === 0) {
+    <div class="empty-state">
+      <span class="material-icons empty-icon">shopping_cart</span>
+      <h3 class="empty-title">Giỏ hàng trống</h3>
+      <p class="empty-text">Thêm sản phẩm vào giỏ hàng để bắt đầu mua sắm</p>
+      <a routerLink="/catalog/products" class="btn-primary">Tiếp tục mua sắm</a>
+    </div>
+  }
+
+  @if (cart() && cart()!.items.length > 0) {
+    <div class="cart-content">
+      <div class="cart-items">
+        @for (item of cart()!.items; track item.id) {
+          <div class="cart-item">
+            <div class="item-image">
+              @if (item.imageUrl) {
+                <img [src]="item.imageUrl" [alt]="item.productName">
+              } @else {
+                <div class="no-image">
+                  <span class="material-icons">image</span>
+                </div>
+              }
+            </div>
+            <div class="item-info">
+              <h3>{{ item.productName }}</h3>
+              <p class="variant">{{ item.variantName }}</p>
+              <p class="sku">SKU: {{ item.sku }}</p>
+              <p class="price">{{ formatVnd(item.price) }}</p>
+            </div>
+            <div class="item-quantity">
+              <button (click)="updateQuantity(item, -1)" [disabled]="item.quantity <= 1">
+                <span class="material-icons">remove</span>
+              </button>
+              <span>{{ item.quantity }}</span>
+              <button (click)="updateQuantity(item, 1)" [disabled]="item.quantity >= item.stockQuantity">
+                <span class="material-icons">add</span>
+              </button>
+            </div>
+            <div class="item-subtotal">
+              {{ formatVnd(item.subtotal) }}
+            </div>
+            <button class="btn-remove" (click)="removeItem(item)">
+              <span class="material-icons">delete</span>
+            </button>
+          </div>
+        }
+      </div>
+
+      <div class="cart-summary">
+        <h2>Tóm tắt đơn hàng</h2>
+        <div class="summary-row">
+          <span>Tạm tính:</span>
+          <span>{{ formatVnd(cart()!.totalAmount) }}</span>
+        </div>
+        <div class="summary-row total">
+          <span>Tổng cộng:</span>
+          <span>{{ formatVnd(cart()!.totalAmount) }}</span>
+        </div>
+        <button class="btn-checkout" (click)="checkout()">
+          <span class="material-icons">payment</span>
+          Thanh toán
+        </button>
+        <button class="btn-clear" (click)="clearCart()">
+          <span class="material-icons">delete</span>
+          Xóa giỏ hàng
+        </button>
+        <a routerLink="/catalog/products" class="btn-continue">
+          <span class="material-icons">arrow_back</span>
+          Tiếp tục mua sắm
+        </a>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,89 @@
+<div class="order-list-container">
+  <h1>
+    <span class="material-icons">inventory_2</span>
+    Đơn hàng của tôi
+  </h1>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <span>Đang tải...</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="toast toast--error">{{ error() }}</div>
+  }
+
+  @if (message()) {
+    <div class="toast toast--success">{{ message() }}</div>
+  }
+
+  @if (!loading() && orders() && orders()!.orders.length === 0) {
+    <div class="empty-state">
+      <span class="material-icons empty-icon">inventory_2</span>
+      <h3 class="empty-title">Chưa có đơn hàng nào</h3>
+      <p class="empty-text">Bắt đầu mua sắm để tạo đơn hàng đầu tiên</p>
+      <a routerLink="/catalog/products" class="btn-primary">
+        <span class="material-icons">arrow_back</span>
+        Tiếp tục mua sắm
+      </a>
+    </div>
+  }
+
+  @if (orders() && orders()!.orders.length > 0) {
+    <div class="orders-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>Ngày đặt</th>
+            <th>Tổng tiền</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of orders()!.orders; track order.id) {
+            <tr>
+              <td class="order-code">{{ order.orderCode }}</td>
+              <td>{{ order.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="amount">{{ formatVnd(order.totalAmount) }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="getStatusClass(order.status)">
+                  {{ getStatusLabel(order.status) }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn-view" (click)="viewOrder(order.id)">
+                  <span class="material-icons">visibility</span>
+                  Xem
+                </button>
+                @if (order.status === 'Pending') {
+                  <button class="btn-cancel" (click)="cancelOrder(order)">
+                    <span class="material-icons">cancel</span>
+                    Hủy
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (orders()!.totalCount > pageSize) {
+      <div class="pagination">
+        <button [disabled]="currentPage <= 1" (click)="previousPage()">
+          <span class="material-icons">arrow_back</span>
+          Trước
+        </button>
+        <span>Trang {{ currentPage }} / {{ Math.ceil(orders()!.totalCount / pageSize) }}</span>
+        <button [disabled]="currentPage * pageSize >= orders()!.totalCount" (click)="nextPage()">
+          Sau
+          <span class="material-icons">arrow_forward</span>
+        </button>
+      </div>
+    }
+  }
+</div>
