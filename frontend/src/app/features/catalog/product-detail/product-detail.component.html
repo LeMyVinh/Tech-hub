@@ -79,8 +79,9 @@
         }
 
         <div class="action-buttons">
-          <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0" (click)="addToCart()"></button>
+          <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0" (click)="addToCart()">
             <span class="material-icons">shopping_cart</span> Thêm vào giỏ hàng
+          </button>
           <button class="btn-wishlist"><span class="material-icons">favorite</span> Yêu thích</button>
         </div>
       </div>

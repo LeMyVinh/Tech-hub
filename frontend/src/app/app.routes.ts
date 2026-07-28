@@ -2,7 +2,11 @@ import { Routes } from '@angular/router';
 import { authGuard, adminGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'catalog', pathMatch: 'full' },
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./features/home/home.component').then(m => m.HomeComponent),
+  },
   {
     path: 'catalog',
     loadChildren: () => import('./features/catalog/catalog.routes'),

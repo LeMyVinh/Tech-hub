@@ -1,6 +1,6 @@
 <header class="app-header">
   <div class="header-container">
-    <a class="brand-logo" routerLink="/catalog">
+    <a class="brand-logo" routerLink="/">
       <span class="logo-icon"><span class="material-icons">flash_on</span></span>
       <span class="logo-text">TECH<span class="highlight">HUB</span></span>
       <span class="badge-tag">PLATFORM</span>
@@ -8,7 +8,7 @@
 
     <nav class="nav-links">
       <a class="nav-item" routerLink="/catalog" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
-        <span class="icon"><span class="material-icons">shopping_cart</span></span> Gian hàng
+        <span class="icon"><span class="material-icons">storefront</span></span> Gian hàng
       </a>
 
       @if (session?.user?.role === 'Admin') {
@@ -19,6 +19,15 @@
     </nav>
 
     <div class="user-actions">
+      @if (session?.user?.role === 'Customer') {
+        <a class="cart-icon-link" routerLink="/cart" routerLinkActive="active" title="Giỏ hàng">
+          <span class="material-icons">shopping_cart</span>
+          @if (cartCount() > 0) {
+            <span class="cart-badge">{{ cartCount() }}</span>
+          }
+        </a>
+      }
+
       @if (session; as userSession) {
         <div class="user-pill">
           <span class="avatar-circle">{{ userSession.user.fullName[0] }}</span>

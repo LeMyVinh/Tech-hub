@@ -1,0 +1,84 @@
+<section class="home-page">
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="hero-tag">TECHHUB PLATFORM</span>
+      <h1>Thiết bị công nghệ chính hãng,<br />giao nhanh - giá tốt</h1>
+      <p>Laptop, linh kiện PC, màn hình và phụ kiện với thông số minh bạch, hàng chính hãng 100%.</p>
+      <div class="hero-actions">
+        <a routerLink="/catalog/products" class="btn-hero-primary">
+          <span class="material-icons">storefront</span>
+          Khám phá gian hàng
+        </a>
+        <a [routerLink]="cartLink()" class="btn-hero-secondary">
+          <span class="material-icons">shopping_cart</span>
+          Xem giỏ hàng
+        </a>
+      </div>
+    </div>
+  </section>
+
+  @if (categories().length > 0) {
+    <section class="section categories-section">
+      <div class="section-header">
+        <h2>Danh mục nổi bật</h2>
+      </div>
+      <div class="category-grid">
+        @for (cat of categories(); track cat.id) {
+          <a class="category-card" routerLink="/catalog/products">
+            <span class="material-icons">devices</span>
+            <span>{{ cat.name }}</span>
+          </a>
+        }
+      </div>
+    </section>
+  }
+
+  <section class="section products-section">
+    <div class="section-header">
+      <h2>Sản phẩm mới nhất</h2>
+      <a routerLink="/catalog/products" class="link-view-all">
+        Xem tất cả <span class="material-icons">arrow_forward</span>
+      </a>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <p>Đang tải sản phẩm...</p>
+      </div>
+    } @else if (featuredProducts().length === 0) {
+      <div class="empty-state">
+        <span class="material-icons empty-icon">inventory_2</span>
+        <p>Chưa có sản phẩm nào.</p>
+      </div>
+    } @else {
+      <div class="product-grid">
+        @for (p of featuredProducts(); track p.id) {
+          <div class="product-card" (click)="viewProduct(p.id)">
+            <div class="card-media">
+              <img
+                [src]="p.primaryImageUrl || 'https://via.placeholder.com/300x200?text=TechHub'"
+                [alt]="p.name"
+              />
+            </div>
+            <div class="card-content">
+              <h3>{{ p.name }}</h3>
+              <span class="current-price">{{ formatVnd(p.minPrice) }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <section class="cta-banner">
+    <div class="cta-content">
+      <h2>Đã sẵn sàng mua sắm?</h2>
+      <p>Duyệt toàn bộ gian hàng hoặc kiểm tra giỏ hàng của bạn ngay.</p>
+      <div class="cta-actions">
+        <a routerLink="/catalog/products" class="btn-hero-primary">Vào gian hàng</a>
+        <a [routerLink]="cartLink()" class="btn-hero-secondary">Xem giỏ hàng</a>
+      </div>
+    </div>
+  </section>
+</section>

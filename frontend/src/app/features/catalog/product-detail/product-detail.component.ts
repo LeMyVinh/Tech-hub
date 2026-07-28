@@ -1,13 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import {
   CatalogService,
   ProductDetail,
   ProductVariant,
 } from '../../../catalog.service';
 import { AuthService } from '../../../auth.service';
+import { CartService } from '../../cart/cart.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -28,7 +28,7 @@ export class ProductDetailComponent implements OnInit {
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly catalog: CatalogService,
-    private readonly http: HttpClient,
+    private readonly cartService: CartService,
     private readonly auth: AuthService,
   ) {}
 
@@ -84,21 +84,15 @@ export class ProductDetailComponent implements OnInit {
     }
 
     this.addingToCart.set(true);
-    this.http
-      .post(
-        'http://localhost:5159/api/v1/cart/items', // TODO: xác nhận lại endpoint sau khi xem CartController.cs
-        { variantId: variant.id, quantity: 1 },
-        { headers: { Authorization: `Bearer ${session.token}` } },
-      )
-      .subscribe({
-        next: () => {
-          this.addingToCart.set(false);
-          alert('Đã thêm vào giỏ hàng!'); // TODO: thay bằng ToastComponent nếu project đã có sẵn
-        },
-        error: () => {
-          this.addingToCart.set(false);
-          alert('Thêm vào giỏ hàng thất bại, vui lòng thử lại.');
-        },
-      });
+    this.cartService.addToCart(session.token, variant.id, 1).subscribe({
+      next: () => {
+        this.addingToCart.set(false);
+        alert('Đã thêm vào giỏ hàng!');
+      },
+      error: () => {
+        this.addingToCart.set(false);
+        alert('Thêm vào giỏ hàng thất bại, vui lòng thử lại.');
+      },
+    });
   }
 }
