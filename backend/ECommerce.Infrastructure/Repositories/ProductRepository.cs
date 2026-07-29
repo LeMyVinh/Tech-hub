@@ -65,7 +65,10 @@ public sealed class ProductRepository : IProductRepository
 
         if (filter.CategoryId.HasValue)
         {
-            query = query.Where(p => p.CategoryId == filter.CategoryId.Value);
+            // Lọc theo danh mục sẽ bao gồm cả các danh mục con (vd: bấm "Laptop" thì cũng
+            // ra sản phẩm thuộc "Laptop MacBook", "Laptop Windows" là con của "Laptop")
+            var categoryIds = await GetCategoryIdsWithDescendantsAsync(filter.CategoryId.Value);
+            query = query.Where(p => categoryIds.Contains(p.CategoryId));
         }
 
         if (filter.BrandId.HasValue)
@@ -122,6 +125,39 @@ public sealed class ProductRepository : IProductRepository
         }).ToList();
 
         return new PagedResult<ProductSummaryResponse>(items, totalCount, page, pageSize);
+    }
+
+    /// <summary>
+    /// Trả về danh sách gồm chính categoryId truyền vào và toàn bộ ID các danh mục con
+    /// (đệ quy nhiều cấp), dùng để lọc sản phẩm theo cả cây danh mục thay vì chỉ 1 ID duy nhất.
+    /// </summary>
+    private async Task<List<int>> GetCategoryIdsWithDescendantsAsync(int categoryId)
+    {
+        var allCategories = await _db.Categories
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.ParentId })
+            .ToListAsync();
+
+        var result = new List<int> { categoryId };
+        var queue = new Queue<int>();
+        queue.Enqueue(categoryId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            var children = allCategories.Where(c => c.ParentId == current).Select(c => c.Id);
+
+            foreach (var childId in children)
+            {
+                if (!result.Contains(childId))
+                {
+                    result.Add(childId);
+                    queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
     }
 
     public async Task<bool> ExistsBySkuAsync(string sku, int? excludeVariantId = null)

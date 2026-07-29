@@ -24,7 +24,7 @@
       </div>
       <div class="category-grid">
         @for (cat of categories(); track cat.id) {
-          <a class="category-card" routerLink="/catalog/products">
+          <a class="category-card" [routerLink]="['/catalog/products']" [queryParams]="{ categoryId: cat.id }">
             <span class="material-icons">devices</span>
             <span>{{ cat.name }}</span>
           </a>

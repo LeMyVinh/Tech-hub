@@ -14,9 +14,11 @@ export class HeaderComponent implements OnChanges {
   @Input() session: LoginResponse | null = null;
   @Output() logoutClick = new EventEmitter<void>();
 
-  readonly cartCount = this.cartService.cartCount;
+  readonly cartCount;
 
-  constructor(private readonly cartService: CartService) {}
+  constructor(private readonly cartService: CartService) {
+    this.cartCount = this.cartService.cartCount;
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['session'] && this.session?.token && this.session.user.role === 'Customer') {

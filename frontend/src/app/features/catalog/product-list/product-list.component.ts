@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   Brand,
   CatalogService,
@@ -35,11 +35,20 @@ export class ProductListComponent implements OnInit {
   constructor(
     private readonly catalog: CatalogService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.loadFilters();
-    this.loadProducts();
+
+    this.route.queryParamMap.subscribe(params => {
+      const categoryId = params.get('categoryId');
+      const brandId = params.get('brandId');
+      this.selectedCategoryId = categoryId ? Number(categoryId) : null;
+      this.selectedBrandId = brandId ? Number(brandId) : null;
+      this.currentPage = 1;
+      this.loadProducts();
+    });
   }
 
   private loadFilters(): void {
@@ -77,7 +86,7 @@ export class ProductListComponent implements OnInit {
 
   applyFilter(): void {
     this.currentPage = 1;
-    this.loadProducts();
+    this.updateQueryParams();
   }
 
   resetFilter(): void {
@@ -88,7 +97,7 @@ export class ProductListComponent implements OnInit {
     this.maxPrice = null;
     this.sortOption = 'newest';
     this.currentPage = 1;
-    this.loadProducts();
+    this.updateQueryParams();
   }
 
   goToPage(page: number): void {
@@ -105,5 +114,16 @@ export class ProductListComponent implements OnInit {
 
   formatVnd(amount: number): string {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  }
+
+  private updateQueryParams(): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        categoryId: this.selectedCategoryId ?? null,
+        brandId: this.selectedBrandId ?? null,
+      },
+      queryParamsHandling: 'merge',
+    });
   }
 }

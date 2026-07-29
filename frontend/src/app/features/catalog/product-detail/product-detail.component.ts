@@ -8,6 +8,7 @@ import {
 } from '../../../catalog.service';
 import { AuthService } from '../../../auth.service';
 import { CartService } from '../../cart/cart.service';
+import { WishlistService } from '../../wishlist/wishlist.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -23,12 +24,15 @@ export class ProductDetailComponent implements OnInit {
   readonly error = signal('');
   readonly activeTab = signal<'description' | 'reviews'>('description');
   readonly addingToCart = signal(false);
+  readonly addingToWishlist = signal(false);
+  readonly isInWishlist = signal(false);
 
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly catalog: CatalogService,
     private readonly cartService: CartService,
+    private readonly wishlistService: WishlistService,
     private readonly auth: AuthService,
   ) {}
 
@@ -45,11 +49,26 @@ export class ProductDetailComponent implements OnInit {
         this.selectedVariant.set(detail.variants[0] ?? null);
         this.selectedImageIndex.set(0);
         this.loading.set(false);
+        this.checkWishlistStatus(id);
       },
       error: () => {
         this.error.set('Không tìm thấy sản phẩm.');
         this.loading.set(false);
       },
+    });
+  }
+
+  private checkWishlistStatus(productId: number): void {
+    const session = this.auth.restoreSession();
+    if (!session) {
+      this.isInWishlist.set(false);
+      return;
+    }
+    this.wishlistService.getWishlist(session.token).subscribe({
+      next: wishlist => {
+        this.isInWishlist.set(wishlist.items.some(item => item.productId === productId));
+      },
+      error: () => {},
     });
   }
 
@@ -94,5 +113,42 @@ export class ProductDetailComponent implements OnInit {
         alert('Thêm vào giỏ hàng thất bại, vui lòng thử lại.');
       },
     });
+  }
+
+  toggleWishlist(): void {
+    const p = this.product();
+    if (!p) return;
+
+    const session = this.auth.restoreSession();
+    if (!session) {
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+
+    this.addingToWishlist.set(true);
+
+    if (this.isInWishlist()) {
+      this.wishlistService.removeFromWishlist(session.token, p.id).subscribe({
+        next: () => {
+          this.isInWishlist.set(false);
+          this.addingToWishlist.set(false);
+        },
+        error: () => {
+          this.addingToWishlist.set(false);
+          alert('Xóa khỏi danh sách yêu thích thất bại, vui lòng thử lại.');
+        },
+      });
+    } else {
+      this.wishlistService.addToWishlist(session.token, p.id).subscribe({
+        next: () => {
+          this.isInWishlist.set(true);
+          this.addingToWishlist.set(false);
+        },
+        error: err => {
+          this.addingToWishlist.set(false);
+          alert(err.error?.message ?? 'Thêm vào danh sách yêu thích thất bại, vui lòng thử lại.');
+        },
+      });
+    }
   }
 }

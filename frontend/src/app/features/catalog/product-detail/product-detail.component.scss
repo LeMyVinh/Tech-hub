@@ -214,6 +214,13 @@ h1 {
 
   &:hover { background: var(--color-danger-light); border-color: rgba(220, 38, 38, 0.2); }
 }
+.btn-wishlist.active {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+
+  &:hover { background: var(--color-danger-hover); }
+}
 
 .product-tabs {
   margin-top: 1.5rem;

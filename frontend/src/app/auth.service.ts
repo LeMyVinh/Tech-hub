@@ -19,11 +19,9 @@ export class AuthService {
   private readonly apiUrl = 'http://localhost:5159/api/v1/auth';
   private readonly storageKey = 'techhub-auth-session';
 
-  // Signal lưu trạng thái user hiện tại, để các component (vd: Header) subscribe theo dõi
   readonly currentUser = signal<LoginResponse['user'] | null>(null);
 
   constructor(private readonly http: HttpClient) {
-    // Khôi phục session ngay khi service khởi tạo (app load / F5)
     const session = this.restoreSession();
     if (session) {
       this.currentUser.set(session.user);
@@ -41,6 +39,10 @@ export class AuthService {
         this.currentUser.set(session.user);
       })
     );
+  }
+
+  refresh(refreshToken: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${this.apiUrl}/refresh`, { refreshToken });
   }
 
   forgotPassword(request: ForgotPasswordRequest): Observable<{ message: string }> {
@@ -81,5 +83,10 @@ export class AuthService {
 
   clearSession(): void {
     localStorage.removeItem(this.storageKey);
+  }
+
+  forceLogout(): void {
+    this.clearSession();
+    this.currentUser.set(null);
   }
 }

@@ -79,10 +79,18 @@
         }
 
         <div class="action-buttons">
-          <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0" (click)="addToCart()">
+          <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0 || addingToCart()" (click)="addToCart()">
             <span class="material-icons">shopping_cart</span> Thêm vào giỏ hàng
           </button>
-          <button class="btn-wishlist"><span class="material-icons">favorite</span> Yêu thích</button>
+          <button
+            class="btn-wishlist"
+            [class.active]="isInWishlist()"
+            [disabled]="addingToWishlist()"
+            (click)="toggleWishlist()"
+          >
+            <span class="material-icons">{{ isInWishlist() ? 'favorite' : 'favorite_border' }}</span>
+            {{ isInWishlist() ? 'Đã yêu thích' : 'Yêu thích' }}
+          </button>
         </div>
       </div>
     </div>
