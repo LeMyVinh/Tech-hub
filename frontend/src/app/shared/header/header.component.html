@@ -20,6 +20,9 @@
 
     <div class="user-actions">
       @if (session?.user?.role === 'Customer') {
+        <a class="wishlist-icon-link" routerLink="/wishlist" routerLinkActive="active" title="Sản phẩm yêu thích">
+          <span class="material-icons">favorite</span>
+        </a>
         <a class="cart-icon-link" routerLink="/cart" routerLinkActive="active" title="Giỏ hàng">
           <span class="material-icons">shopping_cart</span>
           @if (cartCount() > 0) {

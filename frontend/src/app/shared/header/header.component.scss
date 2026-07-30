@@ -187,7 +187,9 @@
   .nav-links { display: none; }
   .user-info { display: none; }
 }
-.cart-icon-link {
+
+.cart-icon-link,
+.wishlist-icon-link {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -206,6 +208,18 @@
   &.active {
     background: var(--color-primary-light);
     color: var(--color-primary);
+  }
+}
+
+.wishlist-icon-link {
+  &:hover {
+    color: var(--color-danger);
+    background: var(--color-danger-light);
+  }
+
+  &.active {
+    color: var(--color-danger);
+    background: var(--color-danger-light);
   }
 }
 
