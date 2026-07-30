@@ -3,6 +3,7 @@ namespace ECommerce.Application;
 public sealed record CreateOrderRequest(
     int AddressId,
     string ShippingMethod,
+    string PaymentMethod,
     string? Note
 );
 
@@ -19,7 +20,8 @@ public sealed record OrderResponse(
     string ShippingMethod,
     string? CancelReason,
     List<OrderItemResponse> Items,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? PaymentUrl = null
 );
 
 public sealed record OrderItemResponse(
@@ -70,7 +72,8 @@ public sealed record PaymentResponse(
     decimal Amount,
     string Status,
     string? TransactionCode,
-    DateTime? PaidAt
+    DateTime? PaidAt,
+    string? PaymentUrl = null
 );
 
 public sealed record OrderStatusLogResponse(

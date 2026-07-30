@@ -6,44 +6,45 @@ public class PaymentService : IPaymentService
 {
     private readonly IPaymentRepository _paymentRepository;
     private readonly IOrderRepository _orderRepository;
+    private readonly IVnpayService _vnpayService;
 
-    public PaymentService(IPaymentRepository paymentRepository, IOrderRepository orderRepository)
+    public PaymentService(IPaymentRepository paymentRepository, IOrderRepository orderRepository, IVnpayService vnpayService)
     {
         _paymentRepository = paymentRepository;
         _orderRepository = orderRepository;
+        _vnpayService = vnpayService;
     }
 
-    public async Task<PaymentResponse> CreatePaymentAsync(int userId, CreatePaymentRequest request)
+    public async Task<PaymentResponse> CreatePaymentAsync(int userId, CreatePaymentRequest request, string clientIp, string returnUrl)
     {
-        var order = await _orderRepository.GetByIdAsync(request.OrderId)
-            ?? throw new PaymentException(404, "Đơn hàng không tồn tại.");
+        if (request.Method != "COD" && request.Method != "VNPay")
+            throw new PaymentException(400, "Phương thức thanh toán không hỗ trợ.");
 
-        if (order.UserId != userId)
-            throw new PaymentException(403, "Bạn không có quyền thanh toán đơn hàng này.");
+        var order = await _orderRepository.GetByIdAsync(request.OrderId);
+        if (order is null || order.UserId != userId)
+            throw new PaymentException(400, "Đơn hàng không hợp lệ.");
 
         if (order.Status != "Pending")
             throw new PaymentException(400, "Đơn hàng không ở trạng thái chờ thanh toán.");
 
         var existingPayment = await _paymentRepository.GetByOrderIdAsync(request.OrderId);
-        if (existingPayment is not null)
+        // Chỉ chặn khi đơn đã có thanh toán THÀNH CÔNG/ĐANG CHỜ; nếu lần trước Failed thì cho phép thanh toán lại
+        // (Payment.OrderId là UNIQUE nên tái sử dụng lại record cũ thay vì tạo bản ghi mới).
+        if (existingPayment is not null && existingPayment.Status != "Failed")
             throw new PaymentException(400, "Đơn hàng đã có thanh toán.");
 
         if (request.Method == "COD")
         {
-            // COD: auto-confirm payment
-            var payment = new Payment
-            {
-                OrderId = request.OrderId,
-                Method = "COD",
-                Status = "Success",
-                TransactionCode = null,
-                PaidAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            };
+            var payment = existingPayment ?? new Payment { OrderId = request.OrderId, CreatedAt = DateTime.UtcNow };
+            payment.Method = "COD";
+            payment.Status = "Success";
+            payment.TransactionCode = null;
+            payment.PaidAt = DateTime.UtcNow;
 
-            await _paymentRepository.AddAsync(payment);
+            if (existingPayment is null)
+                await _paymentRepository.AddAsync(payment);
 
-            // Update order status to Confirmed
+            // COD tự động xác nhận đơn ngay sau khi đặt (BR-05)
             order.Status = "Confirmed";
             order.UpdatedAt = DateTime.UtcNow;
             order.OrderStatusLogs.Add(new OrderStatusLog
@@ -54,38 +55,60 @@ public class PaymentService : IPaymentService
             });
 
             await _paymentRepository.SaveChangesAsync();
-            return MapToResponse(payment, order.TotalAmount);
+            return MapToResponse(payment, order.TotalAmount, null);
         }
-        else if (request.Method == "VNPay")
-        {
-            // VNPay: create pending payment, redirect to VNPay gateway
-            var payment = new Payment
-            {
-                OrderId = request.OrderId,
-                Method = "VNPay",
-                Status = "Pending",
-                TransactionCode = null,
-                PaidAt = null,
-                CreatedAt = DateTime.UtcNow
-            };
 
-            await _paymentRepository.AddAsync(payment);
-            await _paymentRepository.SaveChangesAsync();
+        // VNPay: tạo/khởi tạo lại Payment ở trạng thái Pending, sinh paymentUrl để redirect Customer sang VNPay
+        var vnpayPayment = existingPayment ?? new Payment { OrderId = request.OrderId, CreatedAt = DateTime.UtcNow };
+        vnpayPayment.Method = "VNPay";
+        vnpayPayment.Status = "Pending";
+        vnpayPayment.TransactionCode = null;
+        vnpayPayment.PaidAt = null;
 
-            // In real implementation, generate VNPay payment URL here
-            return MapToResponse(payment, order.TotalAmount);
-        }
-        else
-        {
-            throw new PaymentException(400, "Phương thức thanh toán không hỗ trợ.");
-        }
+        if (existingPayment is null)
+            await _paymentRepository.AddAsync(vnpayPayment);
+
+        await _paymentRepository.SaveChangesAsync();
+
+        var paymentUrl = _vnpayService.CreatePaymentUrl(new VnpayCreateRequest(
+            order.Id,
+            order.Id.ToString(),
+            (long)order.TotalAmount,
+            $"Thanh toan don hang {order.Id}",
+            string.IsNullOrWhiteSpace(clientIp) ? "127.0.0.1" : clientIp,
+            returnUrl));
+
+        return MapToResponse(vnpayPayment, order.TotalAmount, paymentUrl);
     }
 
     public async Task<PaymentResponse> ProcessVnpayCallbackAsync(VnpayCallbackRequest request)
     {
-        // In real implementation, verify VNPay signature here
-        // For now, process based on response code
-        var orderId = int.Parse(request.vnp_TxnRef);
+        var queryParams = new Dictionary<string, string>
+        {
+            ["vnp_TmnCode"] = request.vnp_TmnCode ?? "",
+            ["vnp_Amount"] = request.vnp_Amount ?? "",
+            ["vnp_BankCode"] = request.vnp_BankCode ?? "",
+            ["vnp_BankTranNo"] = request.vnp_BankTranNo ?? "",
+            ["vnp_CardType"] = request.vnp_CardType ?? "",
+            ["vnp_OrderInfo"] = request.vnp_OrderInfo ?? "",
+            ["vnp_PayDate"] = request.vnp_PayDate ?? "",
+            ["vnp_ResponseCode"] = request.vnp_ResponseCode ?? "",
+            ["vnp_TxnRef"] = request.vnp_TxnRef ?? "",
+            ["vnp_TransactionNo"] = request.vnp_TransactionNo ?? "",
+            ["vnp_TransactionStatus"] = request.vnp_TransactionStatus ?? "",
+            ["vnp_SecureHash"] = request.vnp_SecureHash ?? "",
+        };
+
+        if (!_vnpayService.ValidateSignature(queryParams))
+        {
+            // ERR402-02: checksum không hợp lệ -> KHÔNG cập nhật trạng thái Payment/Order, chỉ ghi log cảnh báo.
+            Console.WriteLine($"[VNPay] Invalid checksum for OrderId={request.vnp_TxnRef}");
+            throw new PaymentException(400, "Chữ ký callback không hợp lệ.");
+        }
+
+        if (!int.TryParse(request.vnp_TxnRef, out var orderId))
+            throw new PaymentException(400, "Đơn hàng không hợp lệ.");
+
         var order = await _orderRepository.GetByIdAsync(orderId)
             ?? throw new PaymentException(404, "Đơn hàng không tồn tại.");
 
@@ -94,7 +117,6 @@ public class PaymentService : IPaymentService
 
         if (request.vnp_ResponseCode == "00")
         {
-            // Success
             payment.Status = "Success";
             payment.TransactionCode = request.vnp_TransactionNo;
             payment.PaidAt = DateTime.UtcNow;
@@ -110,13 +132,13 @@ public class PaymentService : IPaymentService
         }
         else
         {
-            // Failed
+            // ERR402-03: vnp_ResponseCode khác '00' -> Payment=Failed, Order giữ Pending để Customer thanh toán lại.
             payment.Status = "Failed";
             payment.TransactionCode = request.vnp_TransactionNo;
         }
 
         await _paymentRepository.SaveChangesAsync();
-        return MapToResponse(payment, order.TotalAmount);
+        return MapToResponse(payment, order.TotalAmount, null);
     }
 
     public async Task<PaymentResponse?> GetPaymentByOrderIdAsync(int userId, int orderId)
@@ -129,10 +151,10 @@ public class PaymentService : IPaymentService
         if (payment is null)
             return null;
 
-        return MapToResponse(payment, order.TotalAmount);
+        return MapToResponse(payment, order.TotalAmount, null);
     }
 
-    private static PaymentResponse MapToResponse(Payment payment, decimal amount)
+    private static PaymentResponse MapToResponse(Payment payment, decimal amount, string? paymentUrl)
     {
         return new PaymentResponse(
             payment.Id,
@@ -140,7 +162,8 @@ public class PaymentService : IPaymentService
             amount,
             payment.Status,
             payment.TransactionCode,
-            payment.PaidAt
+            payment.PaidAt,
+            paymentUrl
         );
     }
 }

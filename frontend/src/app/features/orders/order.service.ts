@@ -21,6 +21,7 @@ export interface OrderResponse {
   cancelReason: string | null;
   items: OrderItem[];
   createdAt: string;
+  customerName?: string | null;
 }
 
 export interface OrderListResponse {

@@ -1,0 +1,89 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị Catalog TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+      <a class="tab-btn active" routerLink="/admin/reviews"><span class="material-icons">rate_review</span> Kiểm duyệt Đánh giá</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Đánh giá đang chờ duyệt ({{ reviews()?.totalCount ?? 0 }})</h3>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else if (reviews()?.reviews?.length === 0) {
+      <div class="empty-state">
+        <span class="material-icons empty-icon">rate_review</span>
+        <h3 class="empty-title">Không có đánh giá nào đang chờ duyệt</h3>
+        <p class="empty-text">Tất cả đánh giá hiện tại đã được xử lý.</p>
+      </div>
+    } @else {
+      <div class="review-list">
+        @for (r of reviews()?.reviews; track r.id) {
+          <div class="review-card">
+            <div class="review-card-header">
+              <div class="reviewer-block">
+                <span class="reviewer-name">{{ r.userName }}</span>
+                <span class="product-id">— Sản phẩm #{{ r.productId }}</span>
+              </div>
+              <span class="stars">
+                @for (s of getStarArray(r.rating); track $index) {
+                  <span [class.filled]="s === 1">★</span>
+                }
+              </span>
+            </div>
+
+            @if (r.comment) {
+              <p class="review-comment">{{ r.comment }}</p>
+            }
+
+            @if (r.imageUrls.length > 0) {
+              <div class="review-images">
+                @for (img of r.imageUrls; track img) {
+                  <img [src]="img" alt="Ảnh đánh giá" />
+                }
+              </div>
+            }
+
+            <div class="review-meta">
+              <span class="review-date">{{ r.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+
+            <div class="review-actions">
+              <button class="btn-approve" [disabled]="processingId() === r.id" (click)="approve(r)">
+                <span class="material-icons">check_circle</span> Duyệt
+              </button>
+              <button class="btn-reject" [disabled]="processingId() === r.id" (click)="reject(r)">
+                <span class="material-icons">block</span> Từ chối
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      @if ((reviews()?.totalCount ?? 0) > pageSize) {
+        <div class="pagination">
+          <button [disabled]="currentPage <= 1" (click)="previousPage()">
+            <span class="material-icons">arrow_back</span> Trước
+          </button>
+          <span>Trang {{ currentPage }} / {{ Math.ceil((reviews()?.totalCount ?? 0) / pageSize) }}</span>
+          <button [disabled]="currentPage * pageSize >= (reviews()?.totalCount ?? 0)" (click)="nextPage()">
+            Sau <span class="material-icons">arrow_forward</span>
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

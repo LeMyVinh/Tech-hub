@@ -16,6 +16,7 @@ export interface Address {
 export interface CreateOrderRequest {
   addressId: number;
   shippingMethod: string;
+  paymentMethod: string;
   note?: string;
 }
 
@@ -28,6 +29,7 @@ export interface OrderResponse {
   cancelReason: string | null;
   items: OrderItem[];
   createdAt: string;
+  paymentUrl: string | null;
 }
 
 export interface OrderItem {

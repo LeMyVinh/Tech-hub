@@ -11,10 +11,12 @@ namespace ECommerce.API.Controllers;
 public sealed class PaymentController : ControllerBase
 {
     private readonly IPaymentService _paymentService;
+    private readonly IConfiguration _configuration;
 
-    public PaymentController(IPaymentService paymentService)
+    public PaymentController(IPaymentService paymentService, IConfiguration configuration)
     {
         _paymentService = paymentService;
+        _configuration = configuration;
     }
 
     [HttpPost]
@@ -24,7 +26,9 @@ public sealed class PaymentController : ControllerBase
         try
         {
             var userId = GetUserId();
-            var result = await _paymentService.CreatePaymentAsync(userId, request);
+            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var returnUrl = _configuration["Vnpay:ReturnUrl"] ?? "http://localhost:4200/payment-result";
+            var result = await _paymentService.CreatePaymentAsync(userId, request, clientIp, returnUrl);
             return Ok(result);
         }
         catch (PaymentException ex)

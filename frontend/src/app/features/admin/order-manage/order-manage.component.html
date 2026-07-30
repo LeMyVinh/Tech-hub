@@ -1,0 +1,183 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+      <a class="tab-btn active" routerLink="/admin/orders"><span class="material-icons">receipt_long</span> Quản lý Đơn hàng</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Danh sách Đơn hàng</h3>
+      <div class="filter-group">
+        <select [(ngModel)]="statusFilter" (change)="applyFilter()">
+          <option value="">Tất cả trạng thái</option>
+          @for (s of statusOptions; track s) {
+            <option [value]="s">{{ getStatusLabel(s) }}</option>
+          }
+        </select>
+        <button class="btn-reset" (click)="resetFilter()">Đặt lại</button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else if (orders()?.orders?.length === 0) {
+      <div class="empty-box">
+        <span class="material-icons">receipt_long</span>
+        <p>Không có đơn hàng nào phù hợp.</p>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>Khách hàng</th>
+            <th>Ngày đặt</th>
+            <th>Tổng tiền</th>
+            <th>Trạng thái</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of orders()?.orders; track order.id) {
+            <tr>
+              <td class="font-bold">{{ order.orderCode }}</td>
+              <td>{{ order.customerName || '—' }}</td>
+              <td>{{ order.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="amount">{{ formatVnd(order.totalAmount) }}</td>
+              <td>
+                <span class="badge" [ngClass]="getStatusClass(order.status)">
+                  {{ getStatusLabel(order.status) }}
+                </span>
+              </td>
+              <td class="actions">
+                <button class="btn-action edit" (click)="openDetail(order)">
+                  <span class="material-icons">visibility</span> Xem / Cập nhật
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (orders(); as res) {
+        <div class="pagination-bar">
+          <button [disabled]="currentPage === 1" (click)="goToPage(currentPage - 1)">‹ Trước</button>
+          <span class="page-info">Trang {{ res.page }} / {{ Math.ceil(res.totalCount / res.pageSize) || 1 }}</span>
+          <button [disabled]="currentPage * res.pageSize >= res.totalCount" (click)="goToPage(currentPage + 1)">Sau ›</button>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+@if (showModal()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-card wide" (click)="$event.stopPropagation()">
+      <button class="btn-close-modal" (click)="closeModal()">✕</button>
+      <h3>Chi tiết đơn hàng</h3>
+
+      @if (detailLoading()) {
+        <div class="loading-box"><div class="spinner"></div><p>Đang tải chi tiết...</p></div>
+      } @else if (selectedOrder(); as o) {
+        <div class="order-detail-grid">
+          <div class="detail-block">
+            <h4>Thông tin đơn</h4>
+            <p><strong>Mã đơn:</strong> {{ o.orderCode }}</p>
+            <p><strong>Khách hàng:</strong> {{ o.customerName || '—' }}</p>
+            <p><strong>Ngày đặt:</strong> {{ o.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+            <p><strong>Phương thức vận chuyển:</strong> {{ o.shippingMethod }}</p>
+            <p><strong>Trạng thái hiện tại:</strong>
+              <span class="badge" [ngClass]="getStatusClass(o.status)">{{ getStatusLabel(o.status) }}</span>
+            </p>
+            @if (o.cancelReason) {
+              <p><strong>Lý do hủy:</strong> {{ o.cancelReason }}</p>
+            }
+          </div>
+
+          <div class="detail-block">
+            <h4>Địa chỉ giao hàng</h4>
+            <p>{{ o.address.recipientName }} - {{ o.address.phone }}</p>
+            <p>{{ o.address.detailAddress }}, {{ o.address.ward }}, {{ o.address.district }}, {{ o.address.province }}</p>
+          </div>
+
+          @if (o.payment) {
+            <div class="detail-block">
+              <h4>Thanh toán</h4>
+              <p><strong>Phương thức:</strong> {{ o.payment.method }}</p>
+              <p><strong>Trạng thái:</strong> {{ o.payment.status }}</p>
+              @if (o.payment.transactionCode) {
+                <p><strong>Mã giao dịch:</strong> {{ o.payment.transactionCode }}</p>
+              }
+            </div>
+          }
+
+          <div class="detail-block full">
+            <h4>Sản phẩm</h4>
+            <table class="data-table mini">
+              <thead>
+                <tr><th>Sản phẩm</th><th>Biến thể</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+              </thead>
+              <tbody>
+                @for (item of o.items; track item.id) {
+                  <tr>
+                    <td>{{ item.productName }}</td>
+                    <td>{{ item.variantName }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ formatVnd(item.unitPrice) }}</td>
+                    <td>{{ formatVnd(item.subtotal) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (o.statusHistory.length > 0) {
+            <div class="detail-block full">
+              <h4>Lịch sử trạng thái</h4>
+              <ul class="status-timeline">
+                @for (log of o.statusHistory; track log.changedAt) {
+                  <li>
+                    <span class="badge" [ngClass]="getStatusClass(log.status)">{{ getStatusLabel(log.status) }}</span>
+                    <span class="timeline-date">{{ log.changedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+
+          <div class="detail-block full">
+            <h4>Cập nhật trạng thái</h4>
+            @if (getNextStatuses(o.status).length === 0) {
+              <p class="no-transition">Đơn hàng đã ở trạng thái cuối cùng, không thể cập nhật thêm.</p>
+            } @else {
+              <div class="status-update-form">
+                <select [(ngModel)]="selectedNewStatus">
+                  <option value="" disabled>-- Chọn trạng thái tiếp theo --</option>
+                  @for (s of getNextStatuses(o.status); track s) {
+                    <option [value]="s">{{ getStatusLabel(s) }}</option>
+                  }
+                </select>
+                <input type="text" placeholder="Ghi chú (tuỳ chọn)" [(ngModel)]="statusNote" />
+                <button class="primary-button" [disabled]="!selectedNewStatus || updating()" (click)="updateStatus()">
+                  {{ updating() ? 'Đang cập nhật...' : 'Xác nhận cập nhật' }}
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}

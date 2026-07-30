@@ -2,7 +2,7 @@ namespace ECommerce.Application;
 
 public interface IOrderService
 {
-    Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request);
+    Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request, string clientIp, string returnUrl);
     Task<OrderListResponse> GetUserOrdersAsync(int userId, int page, int pageSize);
     Task<OrderDetailResponse> GetOrderDetailAsync(int userId, int orderId);
     Task<OrderResponse> CancelOrderAsync(int userId, int orderId, string? reason);

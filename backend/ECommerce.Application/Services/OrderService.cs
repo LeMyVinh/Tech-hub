@@ -8,84 +8,118 @@ public class OrderService : IOrderService
     private readonly ICartService _cartService;
     private readonly IProductVariantRepository _variantRepository;
     private readonly IAddressRepository _addressRepository;
+    private readonly IPaymentService _paymentService;
+    private readonly IUnitOfWork _unitOfWork;
 
     public OrderService(
         IOrderRepository orderRepository,
         ICartService cartService,
         IProductVariantRepository variantRepository,
-        IAddressRepository addressRepository)
+        IAddressRepository addressRepository,
+        IPaymentService paymentService,
+        IUnitOfWork unitOfWork)
     {
         _orderRepository = orderRepository;
         _cartService = cartService;
         _variantRepository = variantRepository;
         _addressRepository = addressRepository;
+        _paymentService = paymentService;
+        _unitOfWork = unitOfWork;
     }
 
-    public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request)
+    public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request, string clientIp, string returnUrl)
     {
-        var cart = await _cartService.GetCartAsync(userId);
-        if (cart.Items.Count == 0)
-            throw new OrderException(400, "Giỏ hàng trống.");
+        if (request.PaymentMethod != "COD" && request.PaymentMethod != "VNPay")
+            throw new OrderException(400, "Phương thức thanh toán không hợp lệ.");
 
-        var address = await _addressRepository.GetByIdAsync(request.AddressId);
-        if (address is null || address.UserId != userId)
-            throw new OrderException(404, "Địa chỉ không tồn tại.");
-
-        // Check stock for all items
-        foreach (var item in cart.Items)
+        // Toàn bộ luồng (kiểm tra tồn kho -> tạo Order -> trừ kho -> xoá giỏ hàng -> tạo Payment)
+        // được bọc trong 1 transaction để đảm bảo tính nguyên tử (atomic) theo đúng thiết kế TH_P401.
+        await using var transaction = await _unitOfWork.BeginTransactionAsync();
+        try
         {
-            var variant = await _variantRepository.GetByIdAsync(item.VariantId);
-            if (variant is null || variant.StockQuantity < item.Quantity)
-                throw new OrderException(400, $"Sản phẩm {item.ProductName} không đủ tồn kho.");
-        }
+            var cart = await _cartService.GetCartAsync(userId);
+            if (cart.Items.Count == 0)
+                throw new OrderException(400, "Giỏ hàng của bạn đang trống.");
 
-        // Create order
-        var orderCode = $"ORD-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..8].ToUpper()}";
-        var order = new Order
-        {
-            UserId = userId,
-            AddressId = request.AddressId,
-            ShippingMethod = request.ShippingMethod,
-            TotalAmount = cart.TotalAmount,
-            Status = "Pending",
-            CancelReason = null,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            OrderItems = cart.Items.Select(i => new OrderItem
+            var address = await _addressRepository.GetByIdAsync(request.AddressId);
+            if (address is null || address.UserId != userId)
+                throw new OrderException(400, "Địa chỉ giao hàng không hợp lệ.");
+
+            // Kiểm tra lại tồn kho tại thời điểm đặt hàng (chống race-condition khi nhiều Customer đặt cùng lúc)
+            foreach (var item in cart.Items)
             {
-                ProductVariantId = i.VariantId,
-                Quantity = i.Quantity,
-                UnitPrice = i.Price
-            }).ToList(),
-            OrderStatusLogs = new List<OrderStatusLog>
-            {
-                new OrderStatusLog
-                {
-                    Status = "Pending",
-                    ChangedAt = DateTime.UtcNow,
-                    ChangedBy = userId
-                }
+                var variant = await _variantRepository.GetByIdAsync(item.VariantId);
+                if (variant is null || variant.StockQuantity < item.Quantity)
+                    throw new OrderException(400, $"Sản phẩm {item.ProductName} không đủ số lượng tồn kho.");
             }
-        };
 
-        // Deduct stock
-        foreach (var item in cart.Items)
-        {
-            var variant = await _variantRepository.GetByIdAsync(item.VariantId);
-            if (variant is not null)
+            var order = new Order
             {
-                variant.StockQuantity -= item.Quantity;
+                UserId = userId,
+                AddressId = request.AddressId,
+                ShippingMethod = request.ShippingMethod,
+                TotalAmount = cart.TotalAmount,
+                Status = "Pending",
+                CancelReason = null,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                OrderItems = cart.Items.Select(i => new OrderItem
+                {
+                    ProductVariantId = i.VariantId,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.Price
+                }).ToList(),
+                OrderStatusLogs = new List<OrderStatusLog>
+                {
+                    new OrderStatusLog
+                    {
+                        Status = "Pending",
+                        ChangedAt = DateTime.UtcNow,
+                        ChangedBy = userId
+                    }
+                }
+            };
+
+            // Trừ tồn kho
+            foreach (var item in cart.Items)
+            {
+                var variant = await _variantRepository.GetByIdAsync(item.VariantId);
+                variant!.StockQuantity -= item.Quantity;
                 await _variantRepository.UpdateAsync(variant);
             }
+
+            await _orderRepository.AddAsync(order);
+            await _orderRepository.SaveChangesAsync();
+
+            // Xoá giỏ hàng
+            await _cartService.ClearCartAsync(userId);
+
+            // Khởi tạo thanh toán ngay khi tạo đơn (COD -> tự xác nhận đơn; VNPay -> sinh paymentUrl)
+            var payment = await _paymentService.CreatePaymentAsync(
+                userId,
+                new CreatePaymentRequest(order.Id, request.PaymentMethod),
+                clientIp,
+                returnUrl);
+
+            await transaction.CommitAsync();
+
+            return MapToResponse(order) with { PaymentUrl = payment.PaymentUrl };
         }
-
-        await _orderRepository.AddAsync(order);
-        await _orderRepository.SaveChangesAsync();
-
-        // Clear cart
-        await _cartService.ClearCartAsync(userId);
-
-        return MapToResponse(order);
+        catch (OrderException)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+        catch (PaymentException ex)
+        {
+            await transaction.RollbackAsync();
+            throw new OrderException(ex.StatusCode, ex.Message);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw new OrderException(500, "Đặt hàng thất bại, vui lòng thử lại.");
+        }
     }
 
     public async Task<OrderListResponse> GetUserOrdersAsync(int userId, int page, int pageSize)

@@ -19,16 +19,17 @@ public class OrderRepository : IOrderRepository
     }
 
     public async Task<Order?> GetByIdWithDetailsAsync(int id)
-    {
-        return await _context.Orders
-            .Include(o => o.OrderItems)
-                .ThenInclude(i => i.ProductVariant)
-                    .ThenInclude(v => v.Product)
-            .Include(o => o.Address)
-            .Include(o => o.Payment)
-            .Include(o => o.OrderStatusLogs)
-            .FirstOrDefaultAsync(o => o.Id == id);
-    }
+{
+    return await _context.Orders
+        .Include(o => o.OrderItems)
+            .ThenInclude(i => i.ProductVariant)
+                .ThenInclude(v => v.Product)
+        .Include(o => o.Address)
+        .Include(o => o.Payment)
+        .Include(o => o.OrderStatusLogs)
+        .Include(o => o.User)
+        .FirstOrDefaultAsync(o => o.Id == id);
+}
 
     public async Task<List<Order>> GetUserOrdersAsync(int userId, int page, int pageSize)
     {

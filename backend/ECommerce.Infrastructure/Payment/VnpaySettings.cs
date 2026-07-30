@@ -1,4 +1,4 @@
-namespace ECommerce.Infrastructure.Payment;
+namespace ECommerce.Infrastructure.PaymentGateway;
 
 public sealed class VnpaySettings
 {

@@ -11,10 +11,12 @@ namespace ECommerce.API.Controllers;
 public sealed class OrderController : ControllerBase
 {
     private readonly IOrderService _orderService;
+    private readonly IConfiguration _configuration;
 
-    public OrderController(IOrderService orderService)
+    public OrderController(IOrderService orderService, IConfiguration configuration)
     {
         _orderService = orderService;
+        _configuration = configuration;
     }
 
     [HttpPost]
@@ -24,7 +26,9 @@ public sealed class OrderController : ControllerBase
         try
         {
             var userId = GetUserId();
-            var result = await _orderService.CreateOrderAsync(userId, request);
+            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var returnUrl = _configuration["Vnpay:ReturnUrl"] ?? "http://localhost:4200/payment-result";
+            var result = await _orderService.CreateOrderAsync(userId, request, clientIp, returnUrl);
             return StatusCode(StatusCodes.Status201Created, result);
         }
         catch (OrderException ex)

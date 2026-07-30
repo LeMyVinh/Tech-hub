@@ -19,7 +19,11 @@ export class App {
     return stored;
   });
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService) {
+    // Mỗi lần app khởi động (mở lại localhost), luôn xóa session cũ
+    // để bắt buộc người dùng phải đăng nhập lại, không tự động vào account cũ.
+    this.auth.forceLogout();
+  }
 
   logout(): void {
     const refreshToken = this.auth.restoreSession()?.refreshToken;

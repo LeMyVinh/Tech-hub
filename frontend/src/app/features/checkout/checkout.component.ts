@@ -3,6 +3,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth.service';
+import { ToastService } from '../../shared/toast/toast.service';
 import { CartResponse, CartService } from '../cart/cart.service';
 import { Address, CheckoutService, CreateOrderRequest } from './checkout.service';
 
@@ -20,12 +21,14 @@ export class CheckoutComponent implements OnInit {
 
   selectedAddressId: number | null = null;
   shippingMethod = 'Standard';
+  paymentMethod = 'COD';
   note = '';
 
   constructor(
     private readonly auth: AuthService,
     private readonly cartService: CartService,
     private readonly checkoutService: CheckoutService,
+    private readonly toast: ToastService,
     private readonly router: Router,
   ) {}
 
@@ -87,12 +90,20 @@ export class CheckoutComponent implements OnInit {
     const request: CreateOrderRequest = {
       addressId: this.selectedAddressId,
       shippingMethod: this.shippingMethod,
+      paymentMethod: this.paymentMethod,
       note: this.note || undefined,
     };
 
     this.checkoutService.createOrder(token, request).subscribe({
       next: (order) => {
-        this.router.navigate(['/orders', order.id]);
+        if (order.paymentUrl) {
+          // VNPay: chuyển hướng toàn trang sang cổng thanh toán
+          window.location.href = order.paymentUrl;
+          return;
+        }
+        // COD: đơn đã được tự động xác nhận
+        this.toast.success('Đặt hàng thành công! Đơn hàng của bạn đang được xử lý.');
+        this.router.navigate(['/orders']);
       },
       error: (err) => {
         this.error.set(err.error?.message ?? 'Lỗi tạo đơn hàng.');

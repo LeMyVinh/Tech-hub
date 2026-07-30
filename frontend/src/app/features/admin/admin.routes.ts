@@ -9,6 +9,12 @@ const routes: Routes = [
     loadComponent: () =>
       import('./product-manage/product-manage.component').then(m => m.ProductManageComponent),
   },
+  {
+    path: 'reviews',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./review-manage/review-manage.component').then(m => m.ReviewManageComponent),
+  },
 ];
 
 export default routes;

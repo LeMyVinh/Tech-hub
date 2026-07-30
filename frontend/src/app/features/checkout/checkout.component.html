@@ -58,6 +58,31 @@
 
         <section class="section">
           <h2>
+            <span class="material-icons">payments</span>
+            Phương thức thanh toán
+          </h2>
+          <div class="payment-options">
+            <label class="payment-option" [class.selected]="paymentMethod === 'COD'">
+              <input type="radio" value="COD" [(ngModel)]="paymentMethod">
+              <span class="material-icons">local_shipping</span>
+              <div class="payment-info">
+                <strong>Thanh toán khi nhận hàng (COD)</strong>
+                <p>Trả tiền mặt trực tiếp cho nhân viên giao hàng.</p>
+              </div>
+            </label>
+            <label class="payment-option" [class.selected]="paymentMethod === 'VNPay'">
+              <input type="radio" value="VNPay" [(ngModel)]="paymentMethod">
+              <span class="material-icons">credit_card</span>
+              <div class="payment-info">
+                <strong>Thanh toán qua VNPay</strong>
+                <p>Chuyển hướng đến cổng thanh toán VNPay để hoàn tất giao dịch.</p>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>
             <span class="material-icons">receipt</span>
             Ghi chú đơn hàng
           </h2>
@@ -99,6 +124,9 @@
           @if (loading()) {
             <span class="material-icons">hourglass_empty</span>
             Đang xử lý...
+          } @else if (paymentMethod === 'VNPay') {
+            <span class="material-icons">open_in_new</span>
+            Tiếp tục tới VNPay
           } @else {
             <span class="material-icons">check_circle</span>
             Đặt hàng
