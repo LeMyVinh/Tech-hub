@@ -15,6 +15,36 @@
     <div class="toast toast--error">{{ error() }}</div>
   }
 
+  @if (!loading() && cart() && addresses().length === 0) {
+    <div class="empty-address-state">
+      <p>Bạn chưa có địa chỉ giao hàng nào. Vui lòng thêm địa chỉ để tiếp tục thanh toán.</p>
+
+      @if (!showAddressForm()) {
+        <button class="btn-submit" style="max-width: 220px;" (click)="toggleAddressForm()">
+          <span class="material-icons">add_location_alt</span>
+          Thêm địa chỉ mới
+        </button>
+      } @else {
+        <form (ngSubmit)="submitNewAddress()" class="quick-address-form">
+          <input placeholder="Họ tên người nhận" [(ngModel)]="newAddress.recipientName" name="recipientName" required />
+          <input placeholder="Số điện thoại" [(ngModel)]="newAddress.phone" name="phone" required />
+          <input placeholder="Tỉnh/Thành phố" [(ngModel)]="newAddress.province" name="province" required />
+          <input placeholder="Quận/Huyện" [(ngModel)]="newAddress.district" name="district" required />
+          <input placeholder="Phường/Xã" [(ngModel)]="newAddress.ward" name="ward" required />
+          <input placeholder="Địa chỉ chi tiết" [(ngModel)]="newAddress.detailAddress" name="detailAddress" required />
+          <div style="display:flex; gap: 0.5rem;">
+            <button type="submit" class="btn-submit" [disabled]="addingAddress">
+              {{ addingAddress ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+            </button>
+            <button type="button" class="btn-submit" style="background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border);" (click)="toggleAddressForm()">
+              Hủy
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  }
+
   @if (cart() && addresses().length > 0) {
     <div class="checkout-content">
       <div class="checkout-main">

@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../auth.service';
 import { ToastService } from '../../shared/toast/toast.service';
 import { CartResponse, CartService } from '../cart/cart.service';
-import { Address, CheckoutService, CreateOrderRequest } from './checkout.service';
+import { AddAddressRequest, Address, CheckoutService, CreateOrderRequest } from './checkout.service';
 
 @Component({
   selector: 'app-checkout',
@@ -23,6 +23,19 @@ export class CheckoutComponent implements OnInit {
   shippingMethod = 'Standard';
   paymentMethod = 'COD';
   note = '';
+
+  // --- Thêm địa chỉ mới ngay tại trang checkout khi chưa có địa chỉ nào ---
+  readonly showAddressForm = signal(false);
+  addingAddress = false;
+  newAddress: AddAddressRequest = {
+    recipientName: '',
+    phone: '',
+    detailAddress: '',
+    ward: '',
+    district: '',
+    province: '',
+    isDefault: true,
+  };
 
   constructor(
     private readonly auth: AuthService,
@@ -76,6 +89,34 @@ export class CheckoutComponent implements OnInit {
       error: () => {
         this.error.set('Không thể tải địa chỉ.');
         this.loading.set(false);
+      },
+    });
+  }
+
+  toggleAddressForm(): void {
+    this.showAddressForm.update(v => !v);
+  }
+
+  submitNewAddress(): void {
+    const token = this.getToken();
+    if (!token) return;
+
+    this.addingAddress = true;
+    this.error.set('');
+
+    this.checkoutService.addAddress(token, this.newAddress).subscribe({
+      next: (addr) => {
+        this.addresses.update(list => [...list, addr]);
+        this.selectedAddressId = addr.id;
+        this.showAddressForm.set(false);
+        this.addingAddress = false;
+        this.newAddress = {
+          recipientName: '', phone: '', detailAddress: '', ward: '', district: '', province: '', isDefault: true,
+        };
+      },
+      error: (err) => {
+        this.error.set(err.error?.message ?? 'Không thể thêm địa chỉ.');
+        this.addingAddress = false;
       },
     });
   }

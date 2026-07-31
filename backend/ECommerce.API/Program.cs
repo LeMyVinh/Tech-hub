@@ -1,7 +1,7 @@
 using ECommerce.Application;
 using ECommerce.Infrastructure.Auth;
 using ECommerce.Infrastructure.Data;
-using ECommerce.Infrastructure.Payment;
+using ECommerce.Infrastructure.PaymentGateway;
 using ECommerce.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;

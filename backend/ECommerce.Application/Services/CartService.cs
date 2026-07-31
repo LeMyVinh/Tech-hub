@@ -62,7 +62,8 @@ public class CartService : ICartService
         }
 
         await _cartRepository.SaveChangesAsync();
-        return MapToResponse(cart);
+        var refreshedCart = await _cartRepository.GetByUserIdAsync(userId);
+        return MapToResponse(refreshedCart!);
     }
 
     public async Task<CartResponse> UpdateCartItemAsync(int userId, int itemId, UpdateCartItemRequest request)

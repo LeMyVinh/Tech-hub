@@ -4,7 +4,7 @@ using System.Text;
 using ECommerce.Application;
 using Microsoft.Extensions.Options;
 
-namespace ECommerce.Infrastructure.Payment;
+namespace ECommerce.Infrastructure.PaymentGateway;
 
 /// <summary>
 /// Cài đặt VNPay theo tài liệu tích hợp chính thức (sandbox):

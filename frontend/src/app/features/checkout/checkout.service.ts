@@ -13,6 +13,16 @@ export interface Address {
   isDefault: boolean;
 }
 
+export interface AddAddressRequest {
+  recipientName: string;
+  phone: string;
+  detailAddress: string;
+  ward: string;
+  district: string;
+  province: string;
+  isDefault: boolean;
+}
+
 export interface CreateOrderRequest {
   addressId: number;
   shippingMethod: string;
@@ -50,6 +60,12 @@ export class CheckoutService {
 
   getAddresses(token: string): Observable<Address[]> {
     return this.http.get<Address[]>(`${this.apiUrl}/users/me/addresses`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    });
+  }
+
+  addAddress(token: string, request: AddAddressRequest): Observable<Address> {
+    return this.http.post<Address>(`${this.apiUrl}/users/me/addresses`, request, {
       headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
     });
   }
