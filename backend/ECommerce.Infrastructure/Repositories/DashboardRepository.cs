@@ -39,6 +39,7 @@ public class DashboardRepository : IDashboardRepository
             .Include(o => o.OrderItems)
                 .ThenInclude(i => i.ProductVariant)
                     .ThenInclude(v => v.Product)
+                        .ThenInclude(p => p.Category)
             .Where(o => o.Status != "Cancelled" && o.CreatedAt >= startDate && o.CreatedAt <= endDate)
             .ToListAsync();
 
@@ -49,7 +50,7 @@ public class DashboardRepository : IDashboardRepository
             o.OrderItems.Select(i => new OrderItemData(
                 i.ProductVariant.ProductId,
                 i.ProductVariant.Product.Name,
-                "Unknown",
+                i.ProductVariant.Product.Category?.Name ?? "Chưa phân loại",
                 i.Quantity,
                 i.UnitPrice,
                 null
@@ -70,17 +71,18 @@ public class DashboardRepository : IDashboardRepository
 
     public async Task<List<ProductStockData>> GetProductStockDataAsync()
     {
-        return await _context.ProductVariants
+        var variants = await _context.ProductVariants
             .Include(v => v.Product)
-            .Select(v => new ProductStockData(
-                v.Id,
-                v.ProductId,
-                v.Product.Name,
-                v.VariantName,
-                v.Sku,
-                v.StockQuantity
-            ))
             .OrderBy(v => v.StockQuantity)
             .ToListAsync();
+
+        return variants.Select(v => new ProductStockData(
+            v.Id,
+            v.ProductId,
+            v.Product.Name,
+            v.VariantName,
+            v.Sku,
+            v.StockQuantity
+        )).ToList();
     }
 }

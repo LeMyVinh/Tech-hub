@@ -1,0 +1,96 @@
+<div class="page-container order-detail-page">
+  <a routerLink="/orders" class="btn-breadcrumb">← Quay lại danh sách đơn hàng</a>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Đang tải chi tiết đơn hàng...</p>
+    </div>
+  } @else if (error()) {
+    <div class="toast toast--error">{{ error() }}</div>
+  } @else if (order(); as o) {
+    <div class="page-header">
+      <h1>Đơn hàng #{{ o.orderCode }}</h1>
+      <span class="status-badge" [ngClass]="getStatusClass(o.status)">{{ getStatusLabel(o.status) }}</span>
+    </div>
+
+    @if (message()) {
+      <div class="toast toast--success">{{ message() }}</div>
+    }
+
+    <div class="detail-grid">
+      <div class="detail-block">
+        <h4>Thông tin đơn</h4>
+        <p><strong>Ngày đặt:</strong> {{ o.createdAt | date:'dd/MM/yyyy HH:mm' }}</p>
+        <p><strong>Phương thức vận chuyển:</strong> {{ o.shippingMethod }}</p>
+        @if (o.cancelReason) {
+          <p><strong>Lý do hủy:</strong> {{ o.cancelReason }}</p>
+        }
+      </div>
+
+      <div class="detail-block">
+        <h4>Địa chỉ giao hàng</h4>
+        <p>{{ o.address.recipientName }} - {{ o.address.phone }}</p>
+        <p>{{ o.address.detailAddress }}, {{ o.address.ward }}, {{ o.address.district }}, {{ o.address.province }}</p>
+      </div>
+
+      @if (o.payment) {
+        <div class="detail-block">
+          <h4>Thanh toán</h4>
+          <p><strong>Phương thức:</strong> {{ o.payment.method }}</p>
+          <p><strong>Trạng thái:</strong> {{ o.payment.status }}</p>
+          @if (o.payment.transactionCode) {
+            <p><strong>Mã giao dịch:</strong> {{ o.payment.transactionCode }}</p>
+          }
+        </div>
+      }
+
+      <div class="detail-block full">
+        <h4>Sản phẩm</h4>
+        <table class="data-table">
+          <thead>
+            <tr><th>Sản phẩm</th><th>Biến thể</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+          </thead>
+          <tbody>
+            @for (item of o.items; track item.id) {
+              <tr>
+                <td>{{ item.productName }}</td>
+                <td>{{ item.variantName }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ formatVnd(item.unitPrice) }}</td>
+                <td>{{ formatVnd(item.subtotal) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <div class="order-total-row">
+          <span>Tổng cộng:</span>
+          <span class="total-amount">{{ formatVnd(o.totalAmount) }}</span>
+        </div>
+      </div>
+
+      @if (o.statusHistory.length > 0) {
+        <div class="detail-block full">
+          <h4>Lịch sử trạng thái</h4>
+          <ul class="status-timeline">
+            @for (log of o.statusHistory; track log.changedAt) {
+              <li>
+                <span class="status-badge" [ngClass]="getStatusClass(log.status)">{{ getStatusLabel(log.status) }}</span>
+                <span class="timeline-date">{{ log.changedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    @if (o.status === 'Pending') {
+      <div class="detail-actions">
+        <button class="btn-danger" [disabled]="cancelling()" (click)="cancelOrder()">
+          <span class="material-icons">cancel</span>
+          {{ cancelling() ? 'Đang hủy...' : 'Hủy đơn hàng' }}
+        </button>
+      </div>
+    }
+  }
+</div>

@@ -86,6 +86,7 @@ export class ProductListComponent implements OnInit {
 
   applyFilter(): void {
     this.currentPage = 1;
+    this.loadProducts();  
     this.updateQueryParams();
   }
 
