@@ -1,6 +1,7 @@
 using ECommerce.Application;
 using ECommerce.Infrastructure.Auth;
 using ECommerce.Infrastructure.Data;
+using ECommerce.Infrastructure.Email;
 using ECommerce.Infrastructure.PaymentGateway;
 using ECommerce.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -53,6 +54,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPasswordResetEmailSender, PasswordResetEmailSender>();
+builder.Services.AddScoped<IOrderConfirmationEmailSender, OrderConfirmationEmailSender>();
 
 builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("Vnpay"));
 builder.Services.AddScoped<IVnpayService, VnpayService>();

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using ECommerce.Domain;
 
 namespace ECommerce.Application;
@@ -7,6 +8,8 @@ public class AuthService : IAuthService
 {
     private const int PasswordResetLifetimeMinutes = 15;
     private const int RefreshTokenLifetimeDays = 7;
+    private const int PasswordMaxLength = 100;
+    private const int EmailMaxLength = 254;
     private readonly IUserRepository _users;
     private readonly IRoleRepository _roles;
     private readonly IRefreshTokenRepository _refreshTokens;
@@ -165,6 +168,12 @@ public class AuthService : IAuthService
     private static string NormalizeAndValidateEmail(string? email)
     {
         var result = Require(email, "Email và mật khẩu không được để trống.").ToLowerInvariant();
+
+        // AUTH-016 fix: reject overlong emails with a clean validation error
+        // instead of letting a DB truncation/insert error bubble up.
+        if (result.Length > EmailMaxLength)
+            throw new AuthException(400, $"Email không được vượt quá {EmailMaxLength} ký tự.");
+
         if (!new EmailAddressAttribute().IsValid(result))
             throw new AuthException(400, "Email không đúng định dạng.");
         return result;
@@ -172,7 +181,23 @@ public class AuthService : IAuthService
 
     private static void ValidatePassword(string? password)
     {
-        if (string.IsNullOrWhiteSpace(password) || password.Length < 6)
+        if (string.IsNullOrWhiteSpace(password))
+            throw new AuthException(400, "Mật khẩu không được để trống.");
+
+        if (password.Length < 6)
             throw new AuthException(400, "Mật khẩu phải có ít nhất 6 ký tự.");
+
+        // AUTH-010 fix: cap length so BCrypt (72-byte input limit) never
+        // silently truncates the password.
+        if (password.Length > PasswordMaxLength)
+            throw new AuthException(400, $"Mật khẩu không được vượt quá {PasswordMaxLength} ký tự.");
+
+        // AUTH-018 fix: require at least one uppercase letter.
+        if (!password.Any(char.IsUpper))
+            throw new AuthException(400, "Mật khẩu phải chứa ít nhất 1 chữ hoa.");
+
+        // AUTH-019 fix: require at least one digit.
+        if (!password.Any(char.IsDigit))
+            throw new AuthException(400, "Mật khẩu phải chứa ít nhất 1 chữ số.");
     }
 }

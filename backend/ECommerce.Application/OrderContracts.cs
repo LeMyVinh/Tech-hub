@@ -63,9 +63,9 @@ public sealed record AddressResponse(
     string DetailAddress,
     string Ward,
     string District,
-    string Province
+    string Province,
+    bool IsDefault = false
 );
-
 public sealed record PaymentResponse(
     int Id,
     string Method,

@@ -212,7 +212,8 @@ public class UserService : IUserService
             address.DetailAddress,
             address.Ward,
             address.District,
-            address.Province
+            address.Province,
+            address.IsDefault
         );
     }
 }

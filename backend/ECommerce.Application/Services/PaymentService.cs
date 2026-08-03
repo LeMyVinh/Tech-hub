@@ -1,4 +1,5 @@
 using ECommerce.Domain;
+using Microsoft.Extensions.Logging;
 
 namespace ECommerce.Application;
 
@@ -7,12 +8,21 @@ public class PaymentService : IPaymentService
     private readonly IPaymentRepository _paymentRepository;
     private readonly IOrderRepository _orderRepository;
     private readonly IVnpayService _vnpayService;
+    private readonly IOrderConfirmationEmailSender _emailSender;
+    private readonly ILogger<PaymentService> _logger;
 
-    public PaymentService(IPaymentRepository paymentRepository, IOrderRepository orderRepository, IVnpayService vnpayService)
+    public PaymentService(
+        IPaymentRepository paymentRepository,
+        IOrderRepository orderRepository,
+        IVnpayService vnpayService,
+        IOrderConfirmationEmailSender emailSender,
+        ILogger<PaymentService> logger)
     {
         _paymentRepository = paymentRepository;
         _orderRepository = orderRepository;
         _vnpayService = vnpayService;
+        _emailSender = emailSender;
+        _logger = logger;
     }
 
     public async Task<PaymentResponse> CreatePaymentAsync(int userId, CreatePaymentRequest request, string clientIp, string returnUrl)
@@ -115,7 +125,9 @@ public class PaymentService : IPaymentService
         var payment = await _paymentRepository.GetByOrderIdAsync(orderId)
             ?? throw new PaymentException(404, "Thanh toán không tồn tại.");
 
-        if (request.vnp_ResponseCode == "00")
+        var isSuccess = request.vnp_ResponseCode == "00";
+
+        if (isSuccess)
         {
             payment.Status = "Success";
             payment.TransactionCode = request.vnp_TransactionNo;
@@ -138,6 +150,26 @@ public class PaymentService : IPaymentService
         }
 
         await _paymentRepository.SaveChangesAsync();
+
+        // === Gửi email xác nhận cho khách hàng ngay sau khi chuyển khoản VNPay thành công ===
+        // Không bọc trong cùng transaction với thanh toán: nếu gửi mail lỗi (SMTP down, mạng lỗi...)
+        // thì đơn hàng/thanh toán đã xác nhận thành công vẫn được giữ nguyên, chỉ log lại lỗi gửi mail.
+        if (isSuccess)
+        {
+            try
+            {
+                var orderWithDetails = await _orderRepository.GetByIdWithDetailsAsync(orderId);
+                if (orderWithDetails is not null)
+                {
+                    await _emailSender.SendPaymentSuccessEmailAsync(orderWithDetails);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Gửi email xác nhận thanh toán thất bại cho Order #{OrderId}", orderId);
+            }
+        }
+
         return MapToResponse(payment, order.TotalAmount, null);
     }
 

@@ -1,0 +1,209 @@
+<div class="account-page">
+  <div class="account-header">
+    <div class="header-left">
+      <div class="header-avatar">
+        {{ profile()?.fullName?.charAt(0) ?? '?' }}
+      </div>
+      <div>
+        <h1>Tài khoản của tôi</h1>
+        <p>Quản lý thông tin cá nhân và địa chỉ giao hàng</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="account-tabs">
+    <button class="tab-pill" [class.active]="activeTab() === 'profile'" (click)="activeTab.set('profile')">
+      <span class="material-icons">person</span>
+      Thông tin cá nhân
+    </button>
+    <button class="tab-pill" [class.active]="activeTab() === 'addresses'" (click)="activeTab.set('addresses')">
+      <span class="material-icons">location_on</span>
+      Địa chỉ giao hàng
+      @if (addresses().length > 0) {
+        <span class="count-pill">{{ addresses().length }}</span>
+      }
+    </button>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p>Đang tải...</p>
+    </div>
+  }
+
+  <!-- ================= TAB: THÔNG TIN CÁ NHÂN ================= -->
+  @if (!loading() && activeTab() === 'profile' && profile(); as p) {
+    <div class="content-card">
+      <div class="content-card-header">
+        <h3>Thông tin cá nhân</h3>
+        <p>Cập nhật họ tên và số điện thoại liên hệ của bạn</p>
+      </div>
+
+      <form (ngSubmit)="submitProfile()" class="profile-form">
+        <div class="form-grid">
+          <div class="field readonly-field">
+            <label>Email</label>
+            <div class="field-value">
+              <span class="material-icons">mail</span>
+              {{ p.email }}
+            </div>
+          </div>
+
+          <div class="field readonly-field">
+            <label>Vai trò</label>
+            <div class="field-value">
+              <span class="role-badge" [class.admin]="p.role === 'Admin'">{{ p.role }}</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="fullName">Họ và tên <span class="required">*</span></label>
+            <input id="fullName" type="text" name="fullName" [(ngModel)]="profileForm.fullName" required />
+          </div>
+
+          <div class="field">
+            <label for="phone">Số điện thoại</label>
+            <input id="phone" type="tel" name="phone" [(ngModel)]="profileForm.phone" placeholder="Chưa cập nhật" />
+          </div>
+
+          <div class="field readonly-field">
+            <label>Ngày tham gia</label>
+            <div class="field-value">
+              <span class="material-icons">event</span>
+              {{ p.createdAt | date: 'dd/MM/yyyy' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-save" [disabled]="savingProfile()">
+            <span class="material-icons">{{ savingProfile() ? 'hourglass_empty' : 'save' }}</span>
+            {{ savingProfile() ? 'Đang lưu...' : 'Lưu thay đổi' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+
+  <!-- ================= TAB: ĐỊA CHỈ GIAO HÀNG ================= -->
+  @if (!loading() && activeTab() === 'addresses') {
+    <div class="content-card">
+      <div class="content-card-header with-action">
+        <div>
+          <h3>Địa chỉ giao hàng</h3>
+          <p>Quản lý các địa chỉ nhận hàng của bạn</p>
+        </div>
+        <button class="btn-add" (click)="openAddAddress()">
+          <span class="material-icons">add_location_alt</span>
+          Thêm địa chỉ
+        </button>
+      </div>
+
+      @if (addresses().length === 0) {
+        <div class="empty-state">
+          <span class="material-icons empty-icon">location_off</span>
+          <h4>Chưa có địa chỉ nào</h4>
+          <p>Thêm địa chỉ giao hàng để thanh toán nhanh hơn ở lần mua sau.</p>
+          <button class="btn-add" (click)="openAddAddress()">
+            <span class="material-icons">add_location_alt</span>
+            Thêm địa chỉ đầu tiên
+          </button>
+        </div>
+      } @else {
+        <div class="address-grid">
+          @for (addr of addresses(); track addr.id) {
+            <div class="address-card" [class.is-default]="addr.isDefault">
+              @if (addr.isDefault) {
+                <span class="default-ribbon">
+                  <span class="material-icons">star</span> Mặc định
+                </span>
+              }
+              <div class="address-card-top">
+                <span class="material-icons pin-icon">location_on</span>
+                <div>
+                  <strong>{{ addr.recipientName }}</strong>
+                  <span class="address-phone">{{ addr.phone }}</span>
+                </div>
+              </div>
+              <p class="address-line">
+                {{ addr.detailAddress }}, {{ addr.ward }}, {{ addr.district }}, {{ addr.province }}
+              </p>
+              <div class="address-actions">
+                @if (!addr.isDefault) {
+                  <button class="addr-btn" (click)="setDefault(addr)">
+                    <span class="material-icons">star_outline</span> Đặt mặc định
+                  </button>
+                }
+                <button class="addr-btn" (click)="openEditAddress(addr)">
+                  <span class="material-icons">edit</span> Sửa
+                </button>
+                <button class="addr-btn danger" (click)="deleteAddress(addr)">
+                  <span class="material-icons">delete_outline</span> Xóa
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- ================= MODAL THÊM / SỬA ĐỊA CHỈ ================= -->
+@if (showAddressModal) {
+  <div class="modal-backdrop" (click)="closeAddressModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <button class="btn-close-modal" (click)="closeAddressModal()">
+        <span class="material-icons">close</span>
+      </button>
+      <h3>{{ editingAddressId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới' }}</h3>
+
+      <form (ngSubmit)="submitAddress()" class="admin-form">
+        <div class="form-row">
+          <label>
+            Họ tên người nhận *
+            <input type="text" name="recipientName" [(ngModel)]="addressForm.recipientName" required />
+          </label>
+          <label>
+            Số điện thoại *
+            <input type="tel" name="addrPhone" [(ngModel)]="addressForm.phone" required />
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Tỉnh/Thành phố *
+            <input type="text" name="province" [(ngModel)]="addressForm.province" required />
+          </label>
+          <label>
+            Quận/Huyện *
+            <input type="text" name="district" [(ngModel)]="addressForm.district" required />
+          </label>
+        </div>
+
+        <label>
+          Phường/Xã *
+          <input type="text" name="ward" [(ngModel)]="addressForm.ward" required />
+        </label>
+
+        <label>
+          Địa chỉ chi tiết *
+          <input type="text" name="detailAddress" [(ngModel)]="addressForm.detailAddress" required placeholder="Số nhà, tên đường..." />
+        </label>
+
+        <label class="checkbox-row">
+          <input type="checkbox" name="isDefault" [(ngModel)]="addressForm.isDefault" />
+          Đặt làm địa chỉ mặc định
+        </label>
+
+        <div class="modal-actions">
+          <button type="submit" class="primary-button" [disabled]="savingAddress()">
+            {{ savingAddress() ? 'Đang lưu...' : 'Lưu địa chỉ' }}
+          </button>
+          <button type="button" class="secondary-button" (click)="closeAddressModal()">Hủy</button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

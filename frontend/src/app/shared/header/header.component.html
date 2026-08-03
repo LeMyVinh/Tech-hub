@@ -32,7 +32,7 @@
       }
 
       @if (session; as userSession) {
-        <div class="user-pill">
+        <a class="user-pill" routerLink="/account" routerLinkActive="active" title="Tài khoản của tôi">
           <span class="avatar-circle">{{ userSession.user.fullName[0] }}</span>
           <div class="user-info">
             <span class="user-name">{{ userSession.user.fullName }}</span>
@@ -40,7 +40,7 @@
               {{ userSession.user.role }}
             </span>
           </div>
-        </div>
+        </a>
         <button type="button" class="btn-icon-logout" title="Đăng xuất" (click)="logoutClick.emit()">
           <span class="material-icons">logout</span>
         </button>
