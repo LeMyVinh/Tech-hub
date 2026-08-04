@@ -49,7 +49,10 @@
         <h4>Sản phẩm</h4>
         <table class="data-table">
           <thead>
-            <tr><th>Sản phẩm</th><th>Biến thể</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+            <tr>
+              <th>Sản phẩm</th><th>Biến thể</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th>
+              @if (o.status === 'Delivered') { <th>Đánh giá</th> }
+            </tr>
           </thead>
           <tbody>
             @for (item of o.items; track item.id) {
@@ -59,6 +62,19 @@
                 <td>{{ item.quantity }}</td>
                 <td>{{ formatVnd(item.unitPrice) }}</td>
                 <td>{{ formatVnd(item.subtotal) }}</td>
+                @if (o.status === 'Delivered') {
+                  <td>
+                    @if (canReview(item)) {
+                      <button class="btn-review" (click)="openReviewModal(item)">
+                        <span class="material-icons">rate_review</span> Đánh giá
+                      </button>
+                    } @else {
+                      <span class="reviewed-note">
+                        <span class="material-icons">check_circle</span> Đã gửi
+                      </span>
+                    }
+                  </td>
+                }
               </tr>
             }
           </tbody>
@@ -94,3 +110,47 @@
     }
   }
 </div>
+
+@if (showReviewModal()) {
+  <div class="modal-backdrop" (click)="closeReviewModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Đánh giá sản phẩm</h3>
+        <button class="btn-icon" (click)="closeReviewModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        @if (reviewingItem(); as item) {
+          <p class="review-product-name">{{ item.productName }} — {{ item.variantName }}</p>
+
+          <div class="review-star-picker">
+            @for (s of starOptions; track s) {
+              <span
+                class="material-icons star"
+                [class.filled]="s <= reviewRating"
+                (click)="setRating(s)">
+                star
+              </span>
+            }
+          </div>
+
+          <textarea
+            class="form-input"
+            rows="4"
+            placeholder="Chia sẻ cảm nhận của bạn về sản phẩm (tùy chọn)..."
+            [(ngModel)]="reviewComment"
+          ></textarea>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeReviewModal()">Hủy</button>
+        <button class="btn-primary" [disabled]="submittingReview()" (click)="submitReview()">
+          {{ submittingReview() ? 'Đang gửi...' : 'Gửi đánh giá' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

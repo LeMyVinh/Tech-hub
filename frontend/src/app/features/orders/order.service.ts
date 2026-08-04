@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 export interface OrderItem {
   id: number;
   variantId: number;
+  productId: number;
   productName: string;
   variantName: string;
   quantity: number;

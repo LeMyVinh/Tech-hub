@@ -1,0 +1,95 @@
+<div class="admin-page">
+  <div class="admin-header">
+    <h2><span class="material-icons">settings</span> Quản trị TechHub</h2>
+    <div class="admin-tabs">
+      <a class="tab-btn" routerLink="/admin/dashboard"><span class="material-icons">dashboard</span> Dashboard</a>
+      <a class="tab-btn" routerLink="/admin/products"><span class="material-icons">inventory_2</span> Quản lý Sản phẩm</a>
+      <a class="tab-btn" routerLink="/catalog/categories"><span class="material-icons">folder</span> Quản lý Danh mục</a>
+      <a class="tab-btn" routerLink="/catalog/brands"><span class="material-icons">label</span> Quản lý Thương hiệu</a>
+      <a class="tab-btn" routerLink="/admin/orders"><span class="material-icons">receipt_long</span> Quản lý Đơn hàng</a>
+      <a class="tab-btn" routerLink="/admin/reviews"><span class="material-icons">rate_review</span> Kiểm duyệt Đánh giá</a>
+      <a class="tab-btn active" routerLink="/admin/users"><span class="material-icons">group</span> Quản lý Người dùng</a>
+    </div>
+  </div>
+
+  @if (message()) {
+    <div class="toast success"><span><span class="material-icons">check_circle</span> {{ message() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+  @if (error()) {
+    <div class="toast error"><span><span class="material-icons">warning</span> {{ error() }}</span><button (click)="clearFeedback()">✕</button></div>
+  }
+
+  <div class="admin-content-box">
+    <div class="toolbar">
+      <h3>Danh sách người dùng ({{ users()?.totalCount ?? 0 }})</h3>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box"><div class="spinner"></div><p>Đang tải...</p></div>
+    } @else if (users()?.users?.length === 0) {
+      <div class="empty-state">
+        <span class="material-icons empty-icon">group_off</span>
+        <h3 class="empty-title">Không có người dùng nào</h3>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Họ tên</th>
+            <th>Email</th>
+            <th>Số điện thoại</th>
+            <th>Vai trò</th>
+            <th>Trạng thái</th>
+            <th>Ngày tham gia</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of users()?.users; track u.id) {
+            <tr>
+              <td>#{{ u.id }}</td>
+              <td class="font-bold">{{ u.fullName }}</td>
+              <td>{{ u.email }}</td>
+              <td>{{ u.phone || '—' }}</td>
+              <td>
+                <span class="status-badge" [class.inactive]="u.role !== 'Admin'">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td>
+                <span class="status-badge" [class.inactive]="!u.isActive">
+                  {{ u.isActive ? 'Hoạt động' : 'Đã khóa' }}
+                </span>
+              </td>
+              <td>{{ u.createdAt | date:'dd/MM/yyyy' }}</td>
+              <td class="actions">
+                @if (u.role === 'Admin') {
+                  <span class="no-logo">Không thể thao tác</span>
+                } @else {
+                  <button
+                    class="btn-action"
+                    [class.delete]="u.isActive"
+                    [class.edit]="!u.isActive"
+                    [disabled]="processingId() === u.id"
+                    (click)="toggleLock(u)">
+                    <span class="material-icons">{{ u.isActive ? 'lock' : 'lock_open' }}</span>
+                    {{ u.isActive ? 'Khóa' : 'Mở khóa' }}
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if ((users()?.totalCount ?? 0) > pageSize) {
+        <div class="pagination-bar">
+          <button [disabled]="currentPage <= 1" (click)="previousPage()">‹ Trước</button>
+          <span class="page-info">Trang {{ currentPage }} / {{ Math.ceil((users()?.totalCount ?? 0) / pageSize) }}</span>
+          <button [disabled]="currentPage * pageSize >= (users()?.totalCount ?? 0)" (click)="nextPage()">Sau ›</button>
+        </div>
+      }
+    }
+  </div>
+</div>

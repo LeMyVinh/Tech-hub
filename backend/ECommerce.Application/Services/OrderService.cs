@@ -240,12 +240,12 @@ public class OrderService : IOrderService
         await _orderRepository.SaveChangesAsync();
         return MapToResponse(order);
     }
-
     private static OrderResponse MapToResponse(Order order)
     {
         var items = order.OrderItems.Select(i => new OrderItemResponse(
             i.Id,
             i.ProductVariantId,
+            i.ProductVariant.ProductId,
             i.ProductVariant.Product.Name,
             i.ProductVariant.VariantName,
             i.Quantity,
@@ -270,6 +270,7 @@ public class OrderService : IOrderService
         var items = order.OrderItems.Select(i => new OrderItemResponse(
             i.Id,
             i.ProductVariantId,
+            i.ProductVariant.ProductId,
             i.ProductVariant.Product.Name,
             i.ProductVariant.VariantName,
             i.Quantity,

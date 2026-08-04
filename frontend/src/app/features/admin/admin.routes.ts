@@ -27,6 +27,12 @@ const routes: Routes = [
     loadComponent: () =>
       import('./review-manage/review-manage.component').then(m => m.ReviewManageComponent),
   },
+  {
+    path: 'users',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./user-manage/user-manage.component').then(m => m.UserManageComponent),
+  },
 ];
 
 export default routes;

@@ -27,6 +27,7 @@ public sealed record OrderResponse(
 public sealed record OrderItemResponse(
     int Id,
     int VariantId,
+    int ProductId,
     string ProductName,
     string VariantName,
     int Quantity,
