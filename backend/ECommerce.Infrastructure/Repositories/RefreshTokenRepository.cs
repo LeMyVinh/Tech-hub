@@ -18,5 +18,16 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
             .ThenInclude(u => u.Role)
             .FirstOrDefaultAsync(t => t.Token == token);
 
+    // AUTH-117 fix: single atomic UPDATE, bypassing the change tracker, so the
+    // database (not application code) decides who wins the race.
+    public async Task<bool> TryRevokeAsync(long id)
+    {
+        var affected = await _db.RefreshTokens
+            .Where(t => t.Id == id && !t.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.IsRevoked, true));
+
+        return affected > 0;
+    }
+
     public Task SaveChangesAsync() => _db.SaveChangesAsync();
 }

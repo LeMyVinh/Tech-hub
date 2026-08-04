@@ -8,6 +8,11 @@ namespace ECommerce.API.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
+// AUTH-108 fix: without this, ASP.NET Core happily tries to bind [FromBody]
+// regardless of Content-Type and a non-JSON body just surfaces as a generic
+// 400 from AuthService's own null checks. Declaring the accepted media type
+// makes the framework return a proper 415 Unsupported Media Type up front.
+[Consumes("application/json")]
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;

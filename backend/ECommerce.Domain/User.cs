@@ -23,6 +23,14 @@ public partial class User
 
     public DateTime UpdatedAt { get; set; }
 
+    // AUTH-079 fix: brute-force lockout bookkeeping.
+    // FailedLoginAttempts resets to 0 on every successful login;
+    // LockedUntil is set once the attempt count hits the threshold and
+    // cleared again once it naturally expires or login succeeds.
+    public int FailedLoginAttempts { get; set; }
+
+    public DateTime? LockedUntil { get; set; }
+
     public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
 
     public virtual Cart? Cart { get; set; }

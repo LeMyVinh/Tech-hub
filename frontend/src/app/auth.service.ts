@@ -12,7 +12,7 @@ interface RegisterRequest { fullName: string; email: string; password: string; p
 interface LoginRequest { email: string; password: string; }
 interface ForgotPasswordRequest { email: string; }
 interface ResetPasswordRequest { token: string; newPassword: string; }
-interface ChangePasswordRequest { oldPassword: string; newPassword: string; confirmPassword: string; }
+interface ChangePasswordRequest { oldPassword: string; newPassword: string; confirmNewPassword: string; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {

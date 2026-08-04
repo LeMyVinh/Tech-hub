@@ -10,6 +10,11 @@ public class AuthService : IAuthService
     private const int RefreshTokenLifetimeDays = 7;
     private const int PasswordMaxLength = 100;
     private const int EmailMaxLength = 254;
+
+    // AUTH-079 fix: brute-force lockout thresholds.
+    private const int MaxFailedLoginAttempts = 5;
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
     private readonly IUserRepository _users;
     private readonly IRoleRepository _roles;
     private readonly IRefreshTokenRepository _refreshTokens;
@@ -55,6 +60,9 @@ public class AuthService : IAuthService
         await _users.AddAsync(user);
         await _users.SaveChangesAsync();
         return new RegisterResponse(user.Id, user.FullName, user.Email);
+        // NOTE (AUTH-114): a concurrent duplicate INSERT for the same email is
+        // still caught safely - the unique index on User.Email (AppDbContext)
+        // throws DbUpdateException, which AuthController maps to 409 Conflict.
     }
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -63,10 +71,34 @@ public class AuthService : IAuthService
         var password = Require(request.Password, "Email và mật khẩu không được để trống.");
         var user = await _users.GetByEmailAsync(email);
 
-        if (user is null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        if (user is null)
             throw new AuthException(401, "Sai email hoặc mật khẩu.");
+
+        // AUTH-079 fix: reject while locked out, before touching BCrypt at all.
+        if (user.LockedUntil.HasValue && user.LockedUntil.Value > DateTime.UtcNow)
+            throw new AuthException(423, "Tài khoản tạm thời bị khóa do đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ít phút.");
+
+        if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+        {
+            user.FailedLoginAttempts += 1;
+            if (user.FailedLoginAttempts >= MaxFailedLoginAttempts)
+            {
+                user.LockedUntil = DateTime.UtcNow.Add(LockoutDuration);
+                user.FailedLoginAttempts = 0;
+            }
+            await _users.SaveChangesAsync();
+            throw new AuthException(401, "Sai email hoặc mật khẩu.");
+        }
+
         if (user.IsActive != true)
             throw new AuthException(403, "Tài khoản của bạn đã bị khoá.");
+
+        if (user.FailedLoginAttempts > 0 || user.LockedUntil.HasValue)
+        {
+            user.FailedLoginAttempts = 0;
+            user.LockedUntil = null;
+            await _users.SaveChangesAsync();
+        }
 
         return await IssueTokensAsync(user);
     }
@@ -79,8 +111,13 @@ public class AuthService : IAuthService
         if (refreshToken is null || refreshToken.IsRevoked || refreshToken.ExpiredAt <= DateTime.UtcNow || refreshToken.User.IsActive != true)
             throw new AuthException(401, "Refresh token không hợp lệ hoặc đã hết hạn.");
 
-        refreshToken.IsRevoked = true;
-        await _refreshTokens.SaveChangesAsync();
+        // AUTH-117 fix: atomic compare-and-swap. If two requests race on the
+        // same (still-valid) token, only one TryRevokeAsync call can return
+        // true; the loser gets a clean 401 instead of also minting tokens.
+        var claimed = await _refreshTokens.TryRevokeAsync(refreshToken.Id);
+        if (!claimed)
+            throw new AuthException(401, "Refresh token đã được sử dụng ở một request khác.");
+
         return await IssueTokensAsync(refreshToken.User);
     }
 
@@ -93,6 +130,14 @@ public class AuthService : IAuthService
             token.IsRevoked = true;
             await _refreshTokens.SaveChangesAsync();
         }
+        // NOTE (AUTH-062): this revokes the refresh token so it can no longer
+        // be exchanged for new tokens (AUTH-084/085 verified via RefreshAsync
+        // above). It intentionally does NOT invalidate the short-lived access
+        // token itself (stateless JWT, no per-session revocation store), and
+        // it only touches the ONE refresh token supplied - other
+        // browsers/devices for the same user keep their own independent
+        // session untouched (AUTH-116). See JwtTokenGenerator for the
+        // shortened access-token lifetime that limits this window.
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
@@ -111,6 +156,10 @@ public class AuthService : IAuthService
         });
         await _passwordResetTokens.SaveChangesAsync();
         await _emailSender.SendAsync(user, token);
+        // NOTE (AUTH-091): PasswordResetEmailSender only logs the link to the
+        // console when Email:SmtpHost is empty (current appsettings.json).
+        // That's a deployment/config gap, not a code bug - fill in real SMTP
+        // (or a transactional email provider) before going to production.
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
@@ -133,6 +182,12 @@ public class AuthService : IAuthService
     {
         var oldPassword = Require(request.OldPassword, "Mật khẩu hiện tại không được để trống.");
         ValidatePassword(request.NewPassword);
+
+        // AUTH-099 fix: server now validates the confirmation itself instead
+        // of trusting the Angular form to have done it.
+        if (!string.Equals(request.NewPassword, request.ConfirmNewPassword, StringComparison.Ordinal))
+            throw new AuthException(400, "Xác nhận mật khẩu mới không khớp.");
+
         var user = await _users.GetByIdAsync(userId) ?? throw new AuthException(401, "Phiên đăng nhập không hợp lệ.");
 
         if (!BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash))
@@ -169,8 +224,8 @@ public class AuthService : IAuthService
     {
         var result = Require(email, "Email và mật khẩu không được để trống.").ToLowerInvariant();
 
-        // AUTH-016 fix: reject overlong emails with a clean validation error
-        // instead of letting a DB truncation/insert error bubble up.
+        // AUTH-016/076 fix: reject overlong emails with a clean validation
+        // error instead of letting a DB truncation/insert error bubble up.
         if (result.Length > EmailMaxLength)
             throw new AuthException(400, $"Email không được vượt quá {EmailMaxLength} ký tự.");
 
@@ -187,7 +242,7 @@ public class AuthService : IAuthService
         if (password.Length < 6)
             throw new AuthException(400, "Mật khẩu phải có ít nhất 6 ký tự.");
 
-        // AUTH-010 fix: cap length so BCrypt (72-byte input limit) never
+        // AUTH-010/077 fix: cap length so BCrypt (72-byte input limit) never
         // silently truncates the password.
         if (password.Length > PasswordMaxLength)
             throw new AuthException(400, $"Mật khẩu không được vượt quá {PasswordMaxLength} ký tự.");
@@ -196,7 +251,7 @@ public class AuthService : IAuthService
         if (!password.Any(char.IsUpper))
             throw new AuthException(400, "Mật khẩu phải chứa ít nhất 1 chữ hoa.");
 
-        // AUTH-019 fix: require at least one digit.
+        // AUTH-019/100 fix: require at least one digit.
         if (!password.Any(char.IsDigit))
             throw new AuthException(400, "Mật khẩu phải chứa ít nhất 1 chữ số.");
     }

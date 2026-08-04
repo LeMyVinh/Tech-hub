@@ -42,7 +42,7 @@ public sealed class OrderConfirmationEmailSender : IOrderConfirmationEmailSender
         {
             // Chưa cấu hình SMTP (vd: môi trường Development) -> chỉ log lại nội dung
             _logger.LogWarning(
-                "SMTP chưa được cấu hình. Email xác nhận thanh toán cho {Email} (Order #{OrderId}):\n{Body}",
+                "SMTP chưa được cấu hình (thiếu EmailSettings:SmtpServer). Email xác nhận thanh toán cho {Email} (Order #{OrderId}):\n{Body}",
                 toEmail, order.Id, body);
             return;
         }
@@ -50,7 +50,7 @@ public sealed class OrderConfirmationEmailSender : IOrderConfirmationEmailSender
         var port = int.TryParse(_configuration["EmailSettings:Port"], out var configuredPort) ? configuredPort : 587;
         var from = _configuration["EmailSettings:SenderEmail"];
         if (string.IsNullOrWhiteSpace(from))
-            throw new InvalidOperationException("Email:From must be configured when SMTP is enabled.");
+            throw new InvalidOperationException("EmailSettings:SenderEmail must be configured when SMTP is enabled.");
 
         using var message = new MailMessage(from, toEmail)
         {
@@ -61,16 +61,40 @@ public sealed class OrderConfirmationEmailSender : IOrderConfirmationEmailSender
             SubjectEncoding = Encoding.UTF8,
         };
 
+        // BUG FIX: trước đây đọc nhầm section "Email:EnableSsl" (không tồn tại trong appsettings),
+        // đúng ra phải đọc "EmailSettings:EnableSsl". Gmail luôn yêu cầu STARTTLS ở cổng 587
+        // nên nếu không cấu hình thì mặc định vẫn bật true, nhưng để rõ ràng và tránh nhầm lẫn
+        // sau này, đọc đúng section + fallback an toàn về true.
+        var enableSsl = !bool.TryParse(_configuration["EmailSettings:EnableSsl"], out var parsedSsl) || parsedSsl;
+
         using var client = new SmtpClient(host, port)
         {
-            EnableSsl = bool.TryParse(_configuration["Email:EnableSsl"], out var enableSsl) ? enableSsl : true,
+            EnableSsl = enableSsl,
+            DeliveryMethod = SmtpDeliveryMethod.Network,
+            UseDefaultCredentials = false,
         };
 
         var username = _configuration["EmailSettings:Username"];
+        var password = _configuration["EmailSettings:Password"];
         if (!string.IsNullOrEmpty(username))
-            client.Credentials = new NetworkCredential(username, _configuration["EmailSettings:Password"]);
+            client.Credentials = new NetworkCredential(username, password);
 
-        await client.SendMailAsync(message, cancellationToken);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+            _logger.LogInformation("Đã gửi email xác nhận thanh toán cho {Email} (Order #{OrderId}).", toEmail, order.Id);
+        }
+        catch (SmtpException ex)
+        {
+            // Log chi tiết StatusCode để dễ chẩn đoán: sai App Password, tài khoản chưa bật
+            // 2-Step Verification, hoặc mạng chặn cổng SMTP.
+            _logger.LogError(ex,
+                "Gửi SMTP thất bại (StatusCode={StatusCode}) cho Order #{OrderId} tới {Email}. " +
+                "Kiểm tra lại: (1) EmailSettings:Password phải là Gmail App Password 16 ký tự, " +
+                "(2) tài khoản Gmail đã bật 2-Step Verification, (3) cổng {Port} không bị firewall chặn.",
+                ex.StatusCode, order.Id, toEmail, port);
+            throw;
+        }
     }
 
     private static string BuildEmailBody(Order order)
