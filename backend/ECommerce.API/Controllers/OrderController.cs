@@ -63,19 +63,20 @@ public sealed class OrderController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetOrderDetail(int id)
+public async Task<IActionResult> GetOrderDetail(int id)
+{
+    try
     {
-        try
-        {
-            var userId = GetUserId();
-            var result = await _orderService.GetOrderDetailAsync(userId, id);
-            return Ok(result);
-        }
-        catch (OrderException ex)
-        {
-            return StatusCode(ex.StatusCode, new { message = ex.Message });
-        }
+        var userId = GetUserId();
+        var isAdmin = User.IsInRole("Admin");
+        var result = await _orderService.GetOrderDetailAsync(userId, id, isAdmin);
+        return Ok(result);
     }
+    catch (OrderException ex)
+    {
+        return StatusCode(ex.StatusCode, new { message = ex.Message });
+    }
+}
 
     [HttpPut("{id:int}/cancel")]
     [Authorize(Roles = "Customer")]

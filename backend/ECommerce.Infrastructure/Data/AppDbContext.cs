@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using ECommerce.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 
 namespace ECommerce.Infrastructure.Data;
@@ -59,6 +60,37 @@ public partial class AppDbContext : DbContext
         modelBuilder
             .UseCollation("utf8mb4_unicode_ci")
             .HasCharSet("utf8mb4");
+
+        // === FIX: MySQL/Pomelo trả về DateTime với Kind=Unspecified, khiến khi
+        // serialize sang JSON chuỗi thời gian không có hậu tố 'Z' (UTC marker).
+        // Angular DatePipe khi đó hiểu nhầm đây là giờ local của trình duyệt
+        // và hiển thị nguyên văn -> lệch 7 tiếng so với giờ VN thực tế (vì toàn
+        // bộ code backend đang lưu bằng DateTime.UtcNow).
+        // Đoạn dưới đây ép mọi cột DateTime/DateTime? khi đọc từ DB lên đều
+        // được gắn nhãn Kind=Utc, áp dụng tự động cho TẤT CẢ entity/property
+        // mà không cần khai báo lặp lại ở từng bảng.
+        var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v,
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        var utcNullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+            v => v,
+            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(utcDateTimeConverter);
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(utcNullableDateTimeConverter);
+                }
+            }
+        }
 
         modelBuilder.Entity<Address>(entity =>
         {

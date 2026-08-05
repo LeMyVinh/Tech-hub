@@ -134,16 +134,17 @@ public class OrderService : IOrderService
         );
     }
 
-    public async Task<OrderDetailResponse> GetOrderDetailAsync(int userId, int orderId)
-    {
-        var order = await _orderRepository.GetByIdWithDetailsAsync(orderId)
-            ?? throw new OrderException(404, "Đơn hàng không tồn tại.");
+    public async Task<OrderDetailResponse> GetOrderDetailAsync(int userId, int orderId, bool isAdmin = false)
+{
+    var order = await _orderRepository.GetByIdWithDetailsAsync(orderId)
+        ?? throw new OrderException(404, "Đơn hàng không tồn tại.");
 
-        if (order.UserId != userId)
-            throw new OrderException(403, "Bạn không có quyền xem đơn hàng này.");
+    // Admin được xem chi tiết mọi đơn hàng; Customer chỉ xem được đơn của chính mình.
+    if (!isAdmin && order.UserId != userId)
+        throw new OrderException(403, "Bạn không có quyền xem đơn hàng này.");
 
-        return MapToDetailResponse(order);
-    }
+    return MapToDetailResponse(order);
+}
 
     public async Task<OrderResponse> CancelOrderAsync(int userId, int orderId, string? reason)
     {

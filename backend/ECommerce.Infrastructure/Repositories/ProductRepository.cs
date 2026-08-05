@@ -54,7 +54,17 @@ public sealed class ProductRepository : IProductRepository
 
         if (!includeInactive)
         {
-            query = query.Where(p => p.Status == "Active" && p.Category.IsActive == true && p.Brand.IsActive == true);
+            // CAT-029 fix (BR-09): "Sản phẩm ngừng kinh doanh HOẶC hết hàng không
+            // hiển thị trong kết quả tìm kiếm mặc định." Trước đây chỉ lọc theo
+            // Status/Category/Brand, sản phẩm hết hàng (mọi variant StockQuantity=0)
+            // vẫn lọt vào danh sách công khai. Chỉ áp dụng cho search PUBLIC
+            // (includeInactive=false) - Admin (AdminProductController dùng
+            // includeInactive=true) vẫn phải thấy đầy đủ để còn quản lý tồn kho.
+            query = query.Where(p =>
+                p.Status == "Active" &&
+                p.Category.IsActive == true &&
+                p.Brand.IsActive == true &&
+                p.ProductVariants.Any(v => v.StockQuantity > 0));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
@@ -76,14 +86,26 @@ public sealed class ProductRepository : IProductRepository
             query = query.Where(p => p.BrandId == filter.BrandId.Value);
         }
 
-        if (filter.MinPrice.HasValue)
+        // CAT-015 fix: minPrice và maxPrice trước đây được áp dụng bằng 2 mệnh đề
+        // Any() ĐỘC LẬP, nên 1 sản phẩm có variant A (giá thấp, thoả maxPrice) và
+        // variant B (giá cao, thoả minPrice) vẫn lọt qua filter dù KHÔNG variant nào
+        // thực sự nằm trong khoảng [minPrice, maxPrice]. Gộp lại thành 1 Any() để cả
+        // 2 điều kiện luôn được xét trên CÙNG một variant.
+        if (filter.MinPrice.HasValue && filter.MaxPrice.HasValue)
         {
-            query = query.Where(p => p.ProductVariants.Any(v => v.Price >= filter.MinPrice.Value));
+            var min = filter.MinPrice.Value;
+            var max = filter.MaxPrice.Value;
+            query = query.Where(p => p.ProductVariants.Any(v => v.Price >= min && v.Price <= max));
         }
-
-        if (filter.MaxPrice.HasValue)
+        else if (filter.MinPrice.HasValue)
         {
-            query = query.Where(p => p.ProductVariants.Any(v => v.Price <= filter.MaxPrice.Value));
+            var min = filter.MinPrice.Value;
+            query = query.Where(p => p.ProductVariants.Any(v => v.Price >= min));
+        }
+        else if (filter.MaxPrice.HasValue)
+        {
+            var max = filter.MaxPrice.Value;
+            query = query.Where(p => p.ProductVariants.Any(v => v.Price <= max));
         }
 
         query = filter.Sort?.ToLower() switch
@@ -91,6 +113,12 @@ public sealed class ProductRepository : IProductRepository
             "price_asc" => query.OrderBy(p => p.ProductVariants.Min(v => (decimal?)v.Price) ?? 0),
             "price_desc" => query.OrderByDescending(p => p.ProductVariants.Min(v => (decimal?)v.Price) ?? 0),
             "newest" => query.OrderByDescending(p => p.CreatedAt),
+            // CAT-019 fix: DD liệt kê "best_selling" là 1 tuỳ chọn sort hợp lệ nhưng
+            // trước đây KHÔNG được cài đặt (rơi vào nhánh mặc định OrderByDescending(Id),
+            // tức không hề sắp theo số lượng bán). Tổng số lượng đã bán = tổng Quantity
+            // của mọi OrderItem thuộc mọi variant của sản phẩm.
+            "best_selling" => query.OrderByDescending(p =>
+                p.ProductVariants.SelectMany(v => v.OrderItems).Sum(oi => (int?)oi.Quantity) ?? 0),
             _ => query.OrderByDescending(p => p.Id)
         };
 

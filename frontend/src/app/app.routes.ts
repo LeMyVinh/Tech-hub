@@ -43,7 +43,16 @@ export const routes: Routes = [
   },
   {
     path: 'orders',
+    canActivate: [authGuard],
     loadComponent: () => import('./features/orders/order-list/order-list.component').then(m => m.OrderListComponent),
+  },
+  {
+    // Route bị thiếu trước đây: không có route này thì router.navigate(['/orders', id])
+    // trong order-list.component.ts sẽ rơi vào wildcard '**' và bị redirect về /catalog,
+    // khiến trang chi tiết đơn hàng (nơi có nút "Đánh giá") không bao giờ hiển thị được.
+    path: 'orders/:id',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/orders/order-detail/order-detail.component').then(m => m.OrderDetailComponent),
   },
   { path: '**', redirectTo: 'catalog' },
 ];
