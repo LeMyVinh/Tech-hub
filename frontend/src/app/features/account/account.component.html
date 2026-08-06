@@ -23,6 +23,10 @@
         <span class="count-pill">{{ addresses().length }}</span>
       }
     </button>
+    <a class="tab-pill" routerLink="/orders">
+      <span class="material-icons">receipt_long</span>
+      Đơn hàng của tôi
+    </a>
   </div>
 
   @if (loading()) {

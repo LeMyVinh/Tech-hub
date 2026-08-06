@@ -21,7 +21,8 @@ public sealed record OrderResponse(
     string? CancelReason,
     List<OrderItemResponse> Items,
     DateTime CreatedAt,
-    string? PaymentUrl = null
+    string? PaymentUrl = null,
+    string? CustomerName = null
 );
 
 public sealed record OrderItemResponse(
@@ -54,7 +55,8 @@ public sealed record OrderDetailResponse(
     PaymentResponse? Payment,
     List<OrderStatusLogResponse> StatusHistory,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    string? CustomerName = null
 );
 
 public sealed record AddressResponse(

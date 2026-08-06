@@ -24,8 +24,8 @@ const STATUS_LABELS: Record<string, string> = {
 const NEXT_VALID_STATUSES: Record<string, string[]> = {
   Pending: ['Confirmed', 'Cancelled'],
   Confirmed: ['Processing', 'Cancelled'],
-  Processing: ['Shipping'],
-  Shipping: ['Delivered'],
+  Processing: ['Shipping', 'Cancelled'],
+  Shipping: ['Delivered', 'Cancelled'],
   Delivered: [],
   Cancelled: [],
 };
@@ -108,28 +108,27 @@ export class OrderManageComponent implements OnInit {
   }
 
   openDetail(order: OrderResponse): void {
-    const token = this.getToken();
-    if (!token) return;
+  const token = this.getToken();
+  if (!token) return;
 
-    this.selectedNewStatus = '';
-    this.statusNote = '';
-    this.selectedOrder.set(null);
-    this.detailLoading.set(true);
-    this.showModal.set(true);
+  this.selectedNewStatus = '';
+  this.statusNote = '';
+  this.selectedOrder.set(null);
+  this.detailLoading.set(true);
+  this.showModal.set(true);
 
-    this.orderService.getOrderDetail(token, order.id).subscribe({
-      next: detail => {
-        this.selectedOrder.set(detail);
-        this.detailLoading.set(false);
-      },
-      error: () => {
-        this.error.set('Không thể tải chi tiết đơn hàng.');
-        this.detailLoading.set(false);
-        this.showModal.set(false);
-      },
-    });
-  }
-
+  this.orderService.getOrderDetail(token, order.id).subscribe({
+    next: detail => {
+      this.selectedOrder.set(detail);
+      this.detailLoading.set(false);
+    },
+    error: (err) => {                                              // ← đổi từ error: () => {...}
+      this.error.set(err.error?.message ?? 'Không thể tải chi tiết đơn hàng.');
+      this.detailLoading.set(false);
+      this.showModal.set(false);
+    },
+  });
+}
   closeModal(): void {
     this.showModal.set(false);
     this.selectedOrder.set(null);

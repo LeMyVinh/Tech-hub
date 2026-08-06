@@ -135,16 +135,15 @@ public class OrderService : IOrderService
     }
 
     public async Task<OrderDetailResponse> GetOrderDetailAsync(int userId, int orderId, bool isAdmin = false)
-{
-    var order = await _orderRepository.GetByIdWithDetailsAsync(orderId)
-        ?? throw new OrderException(404, "Đơn hàng không tồn tại.");
+    {
+        var order = await _orderRepository.GetByIdWithDetailsAsync(orderId)
+            ?? throw new OrderException(404, "Đơn hàng không tồn tại.");
 
-    // Admin được xem chi tiết mọi đơn hàng; Customer chỉ xem được đơn của chính mình.
-    if (!isAdmin && order.UserId != userId)
-        throw new OrderException(403, "Bạn không có quyền xem đơn hàng này.");
+        if (!isAdmin && order.UserId != userId)
+            throw new OrderException(403, "Bạn không có quyền xem đơn hàng này.");
 
-    return MapToDetailResponse(order);
-}
+        return MapToDetailResponse(order);
+    }
 
     public async Task<OrderResponse> CancelOrderAsync(int userId, int orderId, string? reason)
     {
@@ -195,7 +194,7 @@ public class OrderService : IOrderService
         );
     }
 
-    public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusRequest request)
+    public async Task<OrderResponse> UpdateOrderStatusAsync(int adminUserId, int orderId, UpdateOrderStatusRequest request)
     {
         var order = await _orderRepository.GetByIdWithDetailsAsync(orderId)
             ?? throw new OrderException(404, "Đơn hàng không tồn tại.");
@@ -205,7 +204,7 @@ public class OrderService : IOrderService
             ["Pending"] = new[] { "Confirmed", "Cancelled" },
             ["Confirmed"] = new[] { "Processing", "Cancelled" },
             ["Processing"] = new[] { "Shipping", "Cancelled" },
-            ["Shipping"] = new[] { "Delivered" }
+            ["Shipping"] = new[] { "Delivered", "Cancelled" }
         };
 
         if (!validTransitions.ContainsKey(order.Status) ||
@@ -217,11 +216,15 @@ public class OrderService : IOrderService
         order.Status = request.Status;
         order.UpdatedAt = DateTime.UtcNow;
 
+        // FIX: trước đây hardcode ChangedBy = 0, gây vi phạm khóa ngoại fk_statuslog_user
+        // (không có User nào có Id = 0) khiến SaveChangesAsync ném lỗi và rollback toàn bộ
+        // cập nhật trạng thái. Giờ dùng đúng userId của Admin đang thực hiện thao tác,
+        // lấy từ JWT token ở OrderController.
         order.OrderStatusLogs.Add(new OrderStatusLog
         {
             Status = request.Status,
             ChangedAt = DateTime.UtcNow,
-            ChangedBy = 0 // Admin, would need to pass userId
+            ChangedBy = adminUserId
         });
 
         // Restore stock if cancelled
@@ -262,7 +265,9 @@ public class OrderService : IOrderService
             order.ShippingMethod,
             order.CancelReason,
             items,
-            order.CreatedAt
+            order.CreatedAt,
+            null,
+            order.User?.FullName
         );
     }
 
@@ -316,7 +321,8 @@ public class OrderService : IOrderService
             payment,
             statusHistory,
             order.CreatedAt,
-            order.UpdatedAt
+            order.UpdatedAt,
+            order.User?.FullName
         );
     }
 }

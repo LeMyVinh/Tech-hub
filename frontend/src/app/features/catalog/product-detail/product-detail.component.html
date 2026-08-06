@@ -53,7 +53,7 @@
         </div>
 
         <div class="variant-section">
-          <h4>Lựa chọn biến thể:</h4>
+          <h4>Chọn phiên bản / màu sắc:</h4>
           <div class="variant-pills">
             @for (v of p.variants; track v.id) {
               <button
@@ -62,7 +62,7 @@
                 [class.out-of-stock]="v.stockQuantity <= 0"
                 (click)="selectVariant(v)"
               >
-                {{ v.variantName }}
+                {{ v.variantName }} — {{ formatVnd(v.price) }}
               </button>
             }
           </div>
@@ -76,11 +76,20 @@
               {{ cur.stockQuantity > 0 ? 'Còn hàng (' + cur.stockQuantity + ')' : 'Hết hàng' }}
             </span>
           </div>
+
+          <div class="quantity-section">
+            <label>Số lượng:</label>
+            <div class="qty-control">
+              <button type="button" class="qty-btn" [disabled]="quantity() <= 1" (click)="decreaseQuantity()">-</button>
+              <span class="qty-num">{{ quantity() }}</span>
+              <button type="button" class="qty-btn" [disabled]="quantity() >= cur.stockQuantity" (click)="increaseQuantity()">+</button>
+            </div>
+          </div>
         }
 
         <div class="action-buttons">
           <button class="btn-add-cart" [disabled]="(selectedVariant()?.stockQuantity ?? 0) <= 0 || addingToCart()" (click)="addToCart()">
-            <span class="material-icons">shopping_cart</span> Thêm vào giỏ hàng
+            <span class="material-icons">shopping_cart</span> Thêm vào giỏ hàng ({{ quantity() }})
           </button>
           <button
             class="btn-wishlist"

@@ -11,6 +11,12 @@
         <span class="icon"><span class="material-icons">storefront</span></span> Gian hàng
       </a>
 
+      @if (session?.user?.role === 'Customer') {
+        <a class="nav-item" routerLink="/orders" routerLinkActive="active">
+          <span class="icon"><span class="material-icons">receipt_long</span></span> Đơn hàng của tôi
+        </a>
+      }
+
       @if (session?.user?.role === 'Admin') {
         <a class="nav-item admin-btn" routerLink="/admin/dashboard" routerLinkActive="active">
           <span class="icon"><span class="material-icons">settings</span></span> Quản trị Admin
@@ -20,6 +26,9 @@
 
     <div class="user-actions">
       @if (session?.user?.role === 'Customer') {
+        <a class="orders-icon-link" routerLink="/orders" routerLinkActive="active" title="Đơn hàng của tôi">
+          <span class="material-icons">receipt_long</span>
+        </a>
         <a class="wishlist-icon-link" routerLink="/wishlist" routerLinkActive="active" title="Sản phẩm yêu thích">
           <span class="material-icons">favorite</span>
         </a>

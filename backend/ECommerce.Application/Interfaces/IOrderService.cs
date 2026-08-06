@@ -7,5 +7,5 @@ public interface IOrderService
     Task<OrderDetailResponse> GetOrderDetailAsync(int userId, int orderId, bool isAdmin = false);
     Task<OrderResponse> CancelOrderAsync(int userId, int orderId, string? reason);
     Task<OrderListResponse> GetAllOrdersAsync(int page, int pageSize, string? status);
-    Task<OrderResponse> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusRequest request);
+    Task<OrderResponse> UpdateOrderStatusAsync(int adminUserId, int orderId, UpdateOrderStatusRequest request);
 }

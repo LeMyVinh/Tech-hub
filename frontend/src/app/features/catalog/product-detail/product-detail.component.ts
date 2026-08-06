@@ -27,6 +27,8 @@ export class ProductDetailComponent implements OnInit {
   readonly addingToWishlist = signal(false);
   readonly isInWishlist = signal(false);
 
+  readonly quantity = signal(1);
+
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
@@ -48,6 +50,7 @@ export class ProductDetailComponent implements OnInit {
         this.product.set(detail);
         this.selectedVariant.set(detail.variants[0] ?? null);
         this.selectedImageIndex.set(0);
+        this.quantity.set(1);
         this.loading.set(false);
         this.checkWishlistStatus(id);
       },
@@ -74,6 +77,21 @@ export class ProductDetailComponent implements OnInit {
 
   selectVariant(v: ProductVariant): void {
     this.selectedVariant.set(v);
+    this.quantity.set(1);
+  }
+
+  increaseQuantity(): void {
+    const v = this.selectedVariant();
+    if (!v) return;
+    if (this.quantity() < v.stockQuantity) {
+      this.quantity.set(this.quantity() + 1);
+    }
+  }
+
+  decreaseQuantity(): void {
+    if (this.quantity() > 1) {
+      this.quantity.set(this.quantity() - 1);
+    }
   }
 
   selectImage(idx: number): void {
@@ -103,10 +121,10 @@ export class ProductDetailComponent implements OnInit {
     }
 
     this.addingToCart.set(true);
-    this.cartService.addToCart(session.token, variant.id, 1).subscribe({
+    this.cartService.addToCart(session.token, variant.id, this.quantity()).subscribe({
       next: () => {
         this.addingToCart.set(false);
-        alert('Đã thêm vào giỏ hàng!');
+        alert(`Đã thêm ${this.quantity()} sản phẩm (${variant.variantName}) vào giỏ hàng!`);
       },
       error: () => {
         this.addingToCart.set(false);

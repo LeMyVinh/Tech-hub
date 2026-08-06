@@ -86,10 +86,23 @@ export class ProductListComponent implements OnInit {
 
   applyFilter(): void {
     this.currentPage = 1;
-    this.loadProducts();  
+    this.loadProducts();
     this.updateQueryParams();
   }
 
+  // ==========================================================================
+  // FIX BUG-CAT-03 (QA Report - Catalog & Search):
+  // Trước đây resetFilter() chỉ gọi updateQueryParams() và KHÔNG gọi
+  // loadProducts() trực tiếp. Nếu categoryId/brandId không thay đổi (ví dụ
+  // người dùng chỉ lọc theo keyword/khoảng giá, chưa từng chọn category/brand),
+  // router.navigate() điều hướng tới URL giống hệt URL hiện tại, và theo hành vi
+  // mặc định của Angular Router (onSameUrlNavigation: 'ignore'), navigation này
+  // KHÔNG phát sinh NavigationEnd => ActivatedRoute.queryParamMap không emit giá
+  // trị mới => loadProducts() không bao giờ được gọi lại. Kết quả: form bị xoá
+  // trắng trên UI nhưng danh sách sản phẩm (đã lọc trước đó) vẫn hiển thị y
+  // nguyên. Đã sửa để luôn gọi loadProducts() trực tiếp, đồng nhất với
+  // applyFilter().
+  // ==========================================================================
   resetFilter(): void {
     this.searchKeyword = '';
     this.selectedCategoryId = null;
@@ -98,6 +111,7 @@ export class ProductListComponent implements OnInit {
     this.maxPrice = null;
     this.sortOption = 'newest';
     this.currentPage = 1;
+    this.loadProducts();
     this.updateQueryParams();
   }
 

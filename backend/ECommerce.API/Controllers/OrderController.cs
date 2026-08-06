@@ -7,6 +7,7 @@ namespace ECommerce.API.Controllers;
 
 [ApiController]
 [Route("api/v1/orders")]
+[Route("api/v1/admin/orders")]
 [Authorize]
 public sealed class OrderController : ControllerBase
 {
@@ -38,7 +39,7 @@ public sealed class OrderController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] string? status = null)
     {
         try
         {
@@ -47,7 +48,7 @@ public sealed class OrderController : ControllerBase
 
             if (isAdmin)
             {
-                var result = await _orderService.GetAllOrdersAsync(page, pageSize, null);
+                var result = await _orderService.GetAllOrdersAsync(page, pageSize, status);
                 return Ok(result);
             }
             else
@@ -63,20 +64,20 @@ public sealed class OrderController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-public async Task<IActionResult> GetOrderDetail(int id)
-{
-    try
+    public async Task<IActionResult> GetOrderDetail(int id)
     {
-        var userId = GetUserId();
-        var isAdmin = User.IsInRole("Admin");
-        var result = await _orderService.GetOrderDetailAsync(userId, id, isAdmin);
-        return Ok(result);
+        try
+        {
+            var userId = GetUserId();
+            var isAdmin = User.IsInRole("Admin");
+            var result = await _orderService.GetOrderDetailAsync(userId, id, isAdmin);
+            return Ok(result);
+        }
+        catch (OrderException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
     }
-    catch (OrderException ex)
-    {
-        return StatusCode(ex.StatusCode, new { message = ex.Message });
-    }
-}
 
     [HttpPut("{id:int}/cancel")]
     [Authorize(Roles = "Customer")]
@@ -100,7 +101,8 @@ public async Task<IActionResult> GetOrderDetail(int id)
     {
         try
         {
-            var result = await _orderService.UpdateOrderStatusAsync(id, request);
+            var adminUserId = GetUserId();
+            var result = await _orderService.UpdateOrderStatusAsync(adminUserId, id, request);
             return Ok(result);
         }
         catch (OrderException ex)
