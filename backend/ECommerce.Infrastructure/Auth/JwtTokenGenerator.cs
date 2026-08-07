@@ -11,13 +11,6 @@ namespace ECommerce.Infrastructure.Auth;
 
 public class JwtTokenGenerator : IJwtTokenGenerator
 {
-    // AUTH-062 mitigation: access tokens are stateless JWTs, so Logout can only
-    // revoke the refresh token (see AuthService.LogoutAsync) - the access token
-    // itself keeps working until it naturally expires. Shortening the lifetime
-    // from 60 -> 15 minutes shrinks that post-logout exposure window without
-    // any breaking change (the refresh flow already renews it transparently).
-    // A full close of this gap would require per-session revocation (e.g. a
-    // "jti" claim checked against a revoked-token store on every request).
     private const int AccessTokenLifetimeMinutes = 15;
 
     private readonly IConfiguration _config;

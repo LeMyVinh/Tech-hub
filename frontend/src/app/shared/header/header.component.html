@@ -26,9 +26,6 @@
 
     <div class="user-actions">
       @if (session?.user?.role === 'Customer') {
-        <a class="orders-icon-link" routerLink="/orders" routerLinkActive="active" title="Đơn hàng của tôi">
-          <span class="material-icons">receipt_long</span>
-        </a>
         <a class="wishlist-icon-link" routerLink="/wishlist" routerLinkActive="active" title="Sản phẩm yêu thích">
           <span class="material-icons">favorite</span>
         </a>

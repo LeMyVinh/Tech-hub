@@ -17,13 +17,93 @@
       <div class="feedback success">{{ message() }}</div>
     }
 
-    <form (ngSubmit)="submit()">
-      <label>Họ và tên<input name="fullName" [(ngModel)]="register.fullName" required /></label>
-      <label>Email<input type="email" name="email" [(ngModel)]="register.email" required /></label>
-      <label>Số điện thoại<input type="tel" name="phone" [(ngModel)]="register.phone" /></label>
-      <label>Mật khẩu<input type="password" name="password" [(ngModel)]="register.password" required minlength="6" /></label>
-      <label>Xác nhận mật khẩu<input type="password" name="confirmPassword" [(ngModel)]="register.confirmPassword" required /></label>
-      <button class="primary-button" type="submit" [disabled]="loading()">Tạo tài khoản</button>
+    <form (ngSubmit)="submit()" #registerForm="ngForm" novalidate>
+      <label>
+        Họ và tên
+        <input
+          name="fullName"
+          [(ngModel)]="register.fullName"
+          required
+          minlength="2"
+          maxlength="150"
+          #fullNameCtrl="ngModel"
+          [class.invalid]="fullNameCtrl.invalid && fullNameCtrl.touched"
+        />
+        @if (fullNameCtrl.invalid && fullNameCtrl.touched) {
+          <span class="field-error">Vui lòng nhập họ và tên (tối thiểu 2 ký tự).</span>
+        }
+      </label>
+
+      <label>
+        Email
+        <input
+          type="email"
+          name="email"
+          [(ngModel)]="register.email"
+          required
+          [pattern]="emailPattern"
+          #emailCtrl="ngModel"
+          [class.invalid]="emailCtrl.invalid && emailCtrl.touched"
+        />
+        @if (emailCtrl.invalid && emailCtrl.touched) {
+          <span class="field-error">Email không đúng định dạng.</span>
+        }
+      </label>
+
+      <label>
+        Số điện thoại
+        <input
+          type="tel"
+          name="phone"
+          [(ngModel)]="register.phone"
+          [pattern]="phonePattern"
+          #phoneCtrl="ngModel"
+          [class.invalid]="phoneCtrl.invalid && phoneCtrl.touched"
+          placeholder="VD: 0912345678"
+        />
+        @if (phoneCtrl.invalid && phoneCtrl.touched) {
+          <span class="field-error">Số điện thoại phải gồm 10 số và bắt đầu bằng 0.</span>
+        }
+      </label>
+
+      <label>
+        Mật khẩu
+        <input
+          type="password"
+          name="password"
+          [(ngModel)]="register.password"
+          required
+          [pattern]="passwordPattern"
+          #passwordCtrl="ngModel"
+          [class.invalid]="passwordCtrl.invalid && passwordCtrl.touched"
+        />
+        @if (passwordCtrl.invalid && passwordCtrl.touched) {
+          <span class="field-error">Mật khẩu tối thiểu 6 ký tự, có ít nhất 1 chữ hoa và 1 chữ số.</span>
+        }
+      </label>
+
+      <label>
+        Xác nhận mật khẩu
+        <input
+          type="password"
+          name="confirmPassword"
+          [(ngModel)]="register.confirmPassword"
+          required
+          #confirmPasswordCtrl="ngModel"
+          [class.invalid]="confirmPasswordCtrl.touched && register.confirmPassword !== register.password"
+        />
+        @if (confirmPasswordCtrl.touched && register.confirmPassword !== register.password) {
+          <span class="field-error">Xác nhận mật khẩu chưa khớp.</span>
+        }
+      </label>
+
+      <button
+        class="primary-button"
+        type="submit"
+        [disabled]="loading() || registerForm.invalid || register.password !== register.confirmPassword"
+      >
+        {{ loading() ? 'Đang xử lý...' : 'Tạo tài khoản' }}
+      </button>
     </form>
   </section>
 </div>
