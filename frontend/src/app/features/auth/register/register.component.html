@@ -26,11 +26,18 @@
           required
           minlength="2"
           maxlength="150"
+          [pattern]="fullNamePattern"
           #fullNameCtrl="ngModel"
           [class.invalid]="fullNameCtrl.invalid && fullNameCtrl.touched"
         />
         @if (fullNameCtrl.invalid && fullNameCtrl.touched) {
-          <span class="field-error">Vui lòng nhập họ và tên (tối thiểu 2 ký tự).</span>
+          <span class="field-error">
+            @if (fullNameCtrl.errors?.['pattern']) {
+              Họ và tên chỉ được chứa chữ cái và khoảng trắng.
+            } @else {
+              Vui lòng nhập họ và tên (tối thiểu 2 ký tự).
+            }
+          </span>
         }
       </label>
 
@@ -41,6 +48,7 @@
           name="email"
           [(ngModel)]="register.email"
           required
+          maxlength="254"
           [pattern]="emailPattern"
           #emailCtrl="ngModel"
           [class.invalid]="emailCtrl.invalid && emailCtrl.touched"
@@ -73,6 +81,7 @@
           name="password"
           [(ngModel)]="register.password"
           required
+          maxlength="100"
           [pattern]="passwordPattern"
           #passwordCtrl="ngModel"
           [class.invalid]="passwordCtrl.invalid && passwordCtrl.touched"
