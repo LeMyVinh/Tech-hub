@@ -27,3 +27,19 @@ export const adminGuard: CanActivateFn = () => {
 
   return true;
 };
+export const guestGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const session = auth.restoreSession();
+
+  if (session) {
+    if (session.user.role === 'Admin') {
+      router.navigate(['/admin/products']);
+    } else {
+      router.navigate(['/catalog/products']);
+    }
+    return false;
+  }
+
+  return true;
+};

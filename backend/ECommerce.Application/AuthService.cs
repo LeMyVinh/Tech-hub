@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Text.RegularExpressions;
 using ECommerce.Domain;
 
 namespace ECommerce.Application;
@@ -14,6 +15,18 @@ public class AuthService : IAuthService
     // AUTH-079 fix: brute-force lockout thresholds.
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
+    // AUTH-EMAIL-01 fix: System.ComponentModel.DataAnnotations.EmailAddressAttribute
+    // (dùng trước đây) chỉ kiểm tra có đúng 1 dấu '@' với ký tự ở hai bên - nó KHÔNG
+    // yêu cầu domain phải có dấu chấm, nên các chuỗi như "a@b", "user@localhost",
+    // "test@com" vẫn được coi là hợp lệ ở tầng backend dù UI (register.component.ts)
+    // đã chặn bằng regex chặt hơn. Ai gọi thẳng API (Postman/curl, bỏ qua UI) vẫn có
+    // thể tạo tài khoản với email không hợp lệ. Regex dưới đây đồng bộ với frontend
+    // và bổ sung thêm: domain phải có ít nhất 1 dấu chấm, không có 2 dấu chấm liền
+    // nhau, và local-part/domain không được bắt đầu/kết thúc bằng dấu chấm.
+    private static readonly Regex EmailRegex = new(
+        @"^(?!.*\.\.)[^\s@.][^\s@]*@[^\s@.][^\s@]*\.[^\s@.][^\s@]*$",
+        RegexOptions.Compiled);
 
     private readonly IUserRepository _users;
     private readonly IRoleRepository _roles;
@@ -229,8 +242,12 @@ public class AuthService : IAuthService
         if (result.Length > EmailMaxLength)
             throw new AuthException(400, $"Email không được vượt quá {EmailMaxLength} ký tự.");
 
-        if (!new EmailAddressAttribute().IsValid(result))
+        // AUTH-EMAIL-01 fix: dùng regex chặt (đồng bộ với frontend) thay cho
+        // EmailAddressAttribute vốn chấp nhận cả email thiếu domain hợp lệ
+        // (vd: "a@b", "user@localhost").
+        if (!EmailRegex.IsMatch(result))
             throw new AuthException(400, "Email không đúng định dạng.");
+
         return result;
     }
 
