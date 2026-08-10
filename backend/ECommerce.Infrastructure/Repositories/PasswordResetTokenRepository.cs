@@ -15,5 +15,14 @@ public sealed class PasswordResetTokenRepository : IPasswordResetTokenRepository
     public Task<PasswordResetToken?> GetByTokenAsync(string token) =>
         _db.PasswordResetTokens.Include(t => t.User).FirstOrDefaultAsync(t => t.Token == token);
 
+    // SECURITY FIX: đóng toàn bộ token reset còn hiệu lực (chưa dùng, chưa hết hạn)
+    // của user bằng 1 câu UPDATE duy nhất, tránh trường hợp nhiều token sống song song.
+    public async Task InvalidateActiveTokensByUserIdAsync(int userId)
+    {
+        await _db.PasswordResetTokens
+            .Where(t => t.UserId == userId && !t.IsUsed && t.ExpiredAt > DateTime.UtcNow)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.IsUsed, true));
+    }
+
     public Task SaveChangesAsync() => _db.SaveChangesAsync();
 }

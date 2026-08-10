@@ -32,9 +32,11 @@ export class OrderDetailComponent implements OnInit {
   readonly showReviewModal = signal(false);
   readonly reviewingItem = signal<OrderItem | null>(null);
   readonly submittingReview = signal(false);
-  // Ghi nhớ tạm các item đã đánh giá trong phiên hiện tại để ẩn nút "Đánh giá".
-  // Lưu ý: sau khi tải lại trang, nếu bấm đánh giá lại sản phẩm đã từng đánh giá,
-  // backend (BR-06, UNIQUE OrderItemId) sẽ trả lỗi và hiển thị thông báo tương ứng.
+  // FIX: trước đây đây là NGUỒN SỰ THẬT DUY NHẤT cho trạng thái "đã đánh giá" -> mất
+  // trạng thái sau khi F5 (set rỗng lại từ đầu), khiến nút "Đánh giá" hiện sai và bị
+  // backend từ chối. Giờ nguồn sự thật là item.hasReviewed (backend trả về dựa trên
+  // bảng Review). Set này chỉ còn dùng để cập nhật UI NGAY LẬP TỨC sau khi gửi thành
+  // công, tránh phải gọi lại API loadOrder().
   readonly reviewedItemIds = signal<Set<number>>(new Set());
   reviewRating = 5;
   reviewComment = '';
@@ -71,6 +73,9 @@ export class OrderDetailComponent implements OnInit {
     this.orderService.getOrderDetail(token, id).subscribe({
       next: (order) => {
         this.order.set(order);
+        // Mỗi lần tải lại đơn hàng từ backend, trạng thái đã đánh giá là chính xác
+        // nên có thể xoá sạch set optimistic-update cũ.
+        this.reviewedItemIds.set(new Set());
         this.loading.set(false);
       },
       error: (err) => {
@@ -103,7 +108,9 @@ export class OrderDetailComponent implements OnInit {
 
   // --- Đánh giá sản phẩm ---
   canReview(item: OrderItem): boolean {
-    return this.order()?.status === 'Delivered' && !this.reviewedItemIds().has(item.id);
+    // FIX: kiểm tra cả trạng thái thật từ backend (item.hasReviewed) lẫn set
+    // optimistic-update cục bộ, thay vì chỉ dựa vào set cục bộ như trước.
+    return this.order()?.status === 'Delivered' && !item.hasReviewed && !this.reviewedItemIds().has(item.id);
   }
 
   openReviewModal(item: OrderItem): void {

@@ -33,7 +33,11 @@ public sealed record OrderItemResponse(
     string VariantName,
     int Quantity,
     decimal UnitPrice,
-    decimal Subtotal
+    decimal Subtotal,
+    // FIX: trước đây frontend tự "nhớ" item nào đã đánh giá trong 1 signal cục bộ
+    // (order-detail.component.ts), nên chỉ đúng trong phiên hiện tại; F5 lại trang là
+    // sai trạng thái. Giờ backend trả thẳng trạng thái thật dựa trên bảng Review.
+    bool HasReviewed = false
 );
 
 public sealed record OrderListResponse(

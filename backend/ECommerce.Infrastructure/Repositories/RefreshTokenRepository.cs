@@ -29,5 +29,15 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
         return affected > 0;
     }
 
+    // SECURITY FIX: thu hồi hàng loạt bằng 1 câu UPDATE, không cần load entity vào
+    // change tracker -- an toàn kể cả khi user có rất nhiều refresh token (nhiều
+    // thiết bị/trình duyệt).
+    public async Task RevokeAllByUserIdAsync(int userId)
+    {
+        await _db.RefreshTokens
+            .Where(t => t.UserId == userId && !t.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(t => t.IsRevoked, true));
+    }
+
     public Task SaveChangesAsync() => _db.SaveChangesAsync();
 }

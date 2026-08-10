@@ -19,17 +19,34 @@ public class OrderRepository : IOrderRepository
     }
 
     public async Task<Order?> GetByIdWithDetailsAsync(int id)
-{
-    return await _context.Orders
-        .Include(o => o.OrderItems)
-            .ThenInclude(i => i.ProductVariant)
-                .ThenInclude(v => v.Product)
-        .Include(o => o.Address)
-        .Include(o => o.Payment)
-        .Include(o => o.OrderStatusLogs)
-        .Include(o => o.User)
-        .FirstOrDefaultAsync(o => o.Id == id);
-}
+    {
+        return await _context.Orders
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ProductVariant)
+                    .ThenInclude(v => v.Product)
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.Review)
+            .Include(o => o.Address)
+            .Include(o => o.Payment)
+            .Include(o => o.OrderStatusLogs)
+            .Include(o => o.User)
+            .FirstOrDefaultAsync(o => o.Id == id);
+    }
+
+    /// <summary>
+    /// SECURITY FIX (Review IDOR): trước đây ReviewService gọi nhầm GetByIdAsync(orderItemId)
+    /// -- một hàm tìm theo Order.Id -- để tra cứu OrderItem, nên không có cách nào xác minh
+    /// review có thuộc đúng đơn hàng/đúng người dùng/đúng trạng thái Delivered hay không.
+    /// Hàm này trả về đúng OrderItem, kèm Order (để check UserId/Status) và ProductVariant
+    /// (để đối chiếu ProductId client gửi lên) trong một lần truy vấn.
+    /// </summary>
+    public async Task<OrderItem?> GetOrderItemWithDetailsAsync(int orderItemId)
+    {
+        return await _context.OrderItems
+            .Include(oi => oi.Order)
+            .Include(oi => oi.ProductVariant)
+            .FirstOrDefaultAsync(oi => oi.Id == orderItemId);
+    }
 
     public async Task<List<Order>> GetUserOrdersAsync(int userId, int page, int pageSize)
     {

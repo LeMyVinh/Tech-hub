@@ -11,6 +11,9 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  // FIX: trạng thái đánh giá thật lấy từ backend (bảng Review), không còn để
+  // frontend tự đoán bằng signal cục bộ (bug: mất trạng thái sau khi F5 trang).
+  hasReviewed: boolean;
 }
 
 export interface OrderResponse {

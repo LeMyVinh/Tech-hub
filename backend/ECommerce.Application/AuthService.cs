@@ -76,6 +76,12 @@ public class AuthService : IAuthService
         // NOTE (AUTH-114): a concurrent duplicate INSERT for the same email is
         // still caught safely - the unique index on User.Email (AppDbContext)
         // throws DbUpdateException, which AuthController maps to 409 Conflict.
+        // NOTE: Register vẫn trả 409 khi email đã tồn tại (khác với ForgotPassword,
+        // vốn cố tình không tiết lộ). Đây là đánh đổi UX vs bảo mật có chủ đích: đổi
+        // sang thông báo mơ hồ ("nếu email hợp lệ...") sẽ khiến người dùng hợp lệ
+        // không biết họ gõ nhầm email cũ hay cần đăng nhập thay vì đăng ký. Nếu cần
+        // siết chặt hơn, cân nhắc thêm rate-limit theo IP cho endpoint register thay
+        // vì làm mơ hồ hoá phản hồi.
     }
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -159,6 +165,10 @@ public class AuthService : IAuthService
         var user = await _users.GetByEmailAsync(email);
         if (user is null) return; // Do not disclose whether an account exists.
 
+        // SECURITY FIX: đóng toàn bộ token reset còn hiệu lực trước đó của user này,
+        // để không có nhiều token sống song song (xem IPasswordResetTokenRepository).
+        await _passwordResetTokens.InvalidateActiveTokensByUserIdAsync(user.Id);
+
         var token = _jwt.GenerateRefreshToken();
         await _passwordResetTokens.AddAsync(new PasswordResetToken
         {
@@ -189,6 +199,12 @@ public class AuthService : IAuthService
         resetToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword!);
         resetToken.IsUsed = true;
         await _passwordResetTokens.SaveChangesAsync();
+
+        // SECURITY FIX: thu hồi toàn bộ refresh token đang hiệu lực của user ngay sau
+        // khi mật khẩu bị đổi qua luồng quên-mật-khẩu. Nếu ai đó đã chiếm được refresh
+        // token trước đó, việc chủ tài khoản reset mật khẩu qua email giờ mới thực sự
+        // "cắt đứt" được phiên bị đánh cắp.
+        await _refreshTokens.RevokeAllByUserIdAsync(resetToken.UserId);
     }
 
     public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
@@ -210,6 +226,12 @@ public class AuthService : IAuthService
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword!);
         await _users.SaveChangesAsync();
+
+        // SECURITY FIX: tương tự ResetPasswordAsync -- đổi mật khẩu khi đang đăng nhập
+        // cũng phải thu hồi mọi refresh token khác đang tồn tại, kể cả refresh token
+        // của chính phiên hiện tại (client sẽ cần đăng nhập lại, đây là hành vi mong
+        // muốn: "đổi mật khẩu" nên đăng xuất khỏi mọi nơi để an toàn).
+        await _refreshTokens.RevokeAllByUserIdAsync(userId);
     }
 
     private async Task<LoginResponse> IssueTokensAsync(User user)

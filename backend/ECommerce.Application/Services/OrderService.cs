@@ -273,6 +273,9 @@ public class OrderService : IOrderService
 
     private static OrderDetailResponse MapToDetailResponse(Order order)
     {
+        // FIX: HasReviewed lấy từ dữ liệu thật (OrderItem.Review, đã Include ở
+        // OrderRepository.GetByIdWithDetailsAsync), thay vì để frontend tự đoán bằng
+        // 1 signal cục bộ chỉ đúng trong phiên hiện tại.
         var items = order.OrderItems.Select(i => new OrderItemResponse(
             i.Id,
             i.ProductVariantId,
@@ -281,7 +284,8 @@ public class OrderService : IOrderService
             i.ProductVariant.VariantName,
             i.Quantity,
             i.UnitPrice,
-            i.UnitPrice * i.Quantity
+            i.UnitPrice * i.Quantity,
+            i.Review != null
         )).ToList();
 
         var address = new AddressResponse(

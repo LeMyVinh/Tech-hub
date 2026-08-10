@@ -23,10 +23,26 @@ public class ReviewService : IReviewService
         if (existingReview is not null)
             throw new ReviewException(400, "Bạn đã đánh giá sản phẩm này rồi.");
 
-        // Verify order item belongs to user and order is delivered
-        var orderItem = await _orderRepository.GetByIdAsync(request.OrderItemId);
+        // SECURITY FIX (IDOR): lấy đúng OrderItem kèm Order + ProductVariant, thay vì gọi
+        // nhầm hàm tra cứu theo Order.Id như trước đây (khiến bất kỳ Customer nào cũng có
+        // thể gửi review cho đơn của người khác chỉ bằng cách đoán orderItemId).
+        var orderItem = await _orderRepository.GetOrderItemWithDetailsAsync(request.OrderItemId);
         if (orderItem is null)
             throw new ReviewException(404, "Đơn hàng không tồn tại.");
+
+        // Đơn hàng phải thuộc về chính người dùng đang đăng nhập.
+        if (orderItem.Order.UserId != userId)
+            throw new ReviewException(403, "Bạn không có quyền đánh giá đơn hàng này.");
+
+        // Chỉ được đánh giá khi đơn đã giao thành công (đồng bộ với điều kiện hiển thị nút
+        // "Đánh giá" ở frontend, order-detail.component.ts -> canReview()).
+        if (orderItem.Order.Status != "Delivered")
+            throw new ReviewException(400, "Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã được giao.");
+
+        // ProductId client gửi lên phải khớp với sản phẩm thực tế trong OrderItem, tránh
+        // trường hợp gắn review vào sai sản phẩm.
+        if (orderItem.ProductVariant.ProductId != request.ProductId)
+            throw new ReviewException(400, "Sản phẩm không khớp với đơn hàng.");
 
         // Create review
         var review = new Review

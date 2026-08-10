@@ -23,6 +23,10 @@
         <span class="count-pill">{{ addresses().length }}</span>
       }
     </button>
+    <button class="tab-pill" [class.active]="activeTab() === 'password'" (click)="activeTab.set('password')">
+      <span class="material-icons">lock</span>
+      Đổi mật khẩu
+    </button>
     <a class="tab-pill" routerLink="/orders">
       <span class="material-icons">receipt_long</span>
       Đơn hàng của tôi
@@ -150,6 +154,63 @@
           }
         </div>
       }
+    </div>
+  }
+
+  <!-- ================= TAB: ĐỔI MẬT KHẨU ================= -->
+  @if (!loading() && activeTab() === 'password') {
+    <div class="content-card">
+      <div class="content-card-header">
+        <h3>Đổi mật khẩu</h3>
+        <p>Sau khi đổi mật khẩu thành công, bạn sẽ cần đăng nhập lại trên mọi thiết bị.</p>
+      </div>
+
+      <form (ngSubmit)="submitPasswordChange()" class="profile-form">
+        @if (passwordError) {
+          <div class="feedback error">{{ passwordError }}</div>
+        }
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="oldPassword">Mật khẩu hiện tại <span class="required">*</span></label>
+            <input id="oldPassword" type="password" name="oldPassword" [(ngModel)]="passwordForm.oldPassword" required />
+          </div>
+
+          <div class="field"></div>
+
+          <div class="field">
+            <label for="newPassword">Mật khẩu mới <span class="required">*</span></label>
+            <input
+              id="newPassword"
+              type="password"
+              name="newPassword"
+              [(ngModel)]="passwordForm.newPassword"
+              required
+              minlength="6"
+              [maxlength]="passwordMaxLength"
+              [pattern]="passwordPattern"
+            />
+          </div>
+
+          <div class="field">
+            <label for="confirmNewPassword">Xác nhận mật khẩu mới <span class="required">*</span></label>
+            <input
+              id="confirmNewPassword"
+              type="password"
+              name="confirmNewPassword"
+              [(ngModel)]="passwordForm.confirmNewPassword"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-save" [disabled]="changingPassword()">
+            <span class="material-icons">{{ changingPassword() ? 'hourglass_empty' : 'lock_reset' }}</span>
+            {{ changingPassword() ? 'Đang xử lý...' : 'Đổi mật khẩu' }}
+          </button>
+        </div>
+      </form>
     </div>
   }
 </div>

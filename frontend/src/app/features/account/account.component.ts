@@ -20,13 +20,17 @@ import {
   styleUrl: './account.component.scss',
 })
 export class AccountComponent implements OnInit {
-  readonly activeTab = signal<'profile' | 'addresses'>('profile');
+  // FIX: thêm tab 'password' -- trước đây AuthService.changePassword() tồn tại ở
+  // backend/FE service nhưng không có UI nào gọi tới, nên tính năng đổi mật khẩu
+  // khi đang đăng nhập (không qua email) không thể dùng được trong thực tế.
+  readonly activeTab = signal<'profile' | 'addresses' | 'password'>('profile');
 
   readonly profile = signal<UserProfile | null>(null);
   readonly addresses = signal<Address[]>([]);
   readonly loading = signal(false);
   readonly savingProfile = signal(false);
   readonly savingAddress = signal(false);
+  readonly changingPassword = signal(false);
 
   profileForm: UpdateUserProfileRequest = { fullName: '', phone: '' };
 
@@ -41,6 +45,12 @@ export class AccountComponent implements OnInit {
     province: '',
     isDefault: false,
   };
+
+  // --- Đổi mật khẩu ---
+  passwordForm = { oldPassword: '', newPassword: '', confirmNewPassword: '' };
+  readonly passwordPattern = '^(?=.*[A-Z])(?=.*\\d).{6,100}$';
+  readonly passwordMaxLength = 100;
+  passwordError = '';
 
   constructor(
     private readonly auth: AuthService,
@@ -199,6 +209,57 @@ export class AccountComponent implements OnInit {
         this.loadAddresses();
       },
       error: err => this.toast.error(err.error?.message ?? 'Lỗi đặt địa chỉ mặc định.'),
+    });
+  }
+
+  // --- Đổi mật khẩu ---
+  submitPasswordChange(): void {
+    this.passwordError = '';
+    const token = this.requireToken();
+    if (!token) return;
+
+    const { oldPassword, newPassword, confirmNewPassword } = this.passwordForm;
+
+    if (!oldPassword) {
+      this.passwordError = 'Vui lòng nhập mật khẩu hiện tại.';
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      this.passwordError = 'Mật khẩu mới phải có ít nhất 6 ký tự.';
+      return;
+    }
+    if (newPassword.length > this.passwordMaxLength) {
+      this.passwordError = `Mật khẩu mới không được vượt quá ${this.passwordMaxLength} ký tự.`;
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      this.passwordError = 'Mật khẩu mới phải chứa ít nhất 1 chữ hoa.';
+      return;
+    }
+    if (!/\d/.test(newPassword)) {
+      this.passwordError = 'Mật khẩu mới phải chứa ít nhất 1 chữ số.';
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      this.passwordError = 'Xác nhận mật khẩu mới chưa khớp.';
+      return;
+    }
+
+    this.changingPassword.set(true);
+    this.auth.changePassword(token, { oldPassword, newPassword, confirmNewPassword }).subscribe({
+      next: () => {
+        this.changingPassword.set(false);
+        this.passwordForm = { oldPassword: '', newPassword: '', confirmNewPassword: '' };
+        this.toast.success('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
+        // Backend đã thu hồi toàn bộ refresh token của user (kể cả phiên hiện tại),
+        // nên đăng xuất luôn ở FE để đồng bộ trạng thái.
+        this.auth.forceLogout();
+        this.router.navigate(['/auth/login']);
+      },
+      error: err => {
+        this.changingPassword.set(false);
+        this.passwordError = err.error?.message ?? 'Đổi mật khẩu thất bại.';
+      },
     });
   }
 }
