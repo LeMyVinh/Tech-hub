@@ -82,16 +82,21 @@ public sealed class CategoryService : ICategoryService
         if (category == null)
             throw new CatalogException(404, "Danh mục không tồn tại.");
 
+        // FIX: trước đây category.IsActive luôn bị set false ngay cả khi đang có sản
+        // phẩm Active gắn với nó, khiến toàn bộ sản phẩm đó "biến mất" âm thầm khỏi
+        // trang khách hàng (ProductRepository.SearchAsync lọc theo Category.IsActive).
+        // Giờ chặn hẳn thao tác ẩn nếu còn sản phẩm đang kinh doanh, buộc Admin phải
+        // chuyển sản phẩm sang danh mục khác trước.
         var hasActiveProducts = await _categoryRepository.HasActiveProductsAsync(id);
-        category.IsActive = false;
-
-        await _categoryRepository.UpdateAsync(category);
-        await _categoryRepository.SaveChangesAsync();
-
         if (hasActiveProducts)
         {
-            return "Không thể xoá, danh mục/thương hiệu đang có sản phẩm. Đã chuyển sang trạng thái ẩn.";
+            throw new CatalogException(400,
+                "Không thể ẩn danh mục đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang danh mục khác trước khi ẩn.");
         }
+
+        category.IsActive = false;
+        await _categoryRepository.UpdateAsync(category);
+        await _categoryRepository.SaveChangesAsync();
 
         return "Đã ngừng sử dụng danh mục thành công.";
     }

@@ -62,7 +62,13 @@ public class WishlistService : IWishlistService
         var item = await _wishlistRepository.GetByUserAndProductAsync(userId, productId)
             ?? throw new WishlistException(404, "Sản phẩm không có trong danh sách yêu thích.");
 
-        var variant = item.Product.ProductVariants.FirstOrDefault();
+        // FIX: trước đây luôn lấy FirstOrDefault() — có thể rơi vào biến thể đã hết
+        // hàng, khiến người dùng bị báo lỗi tồn kho khó hiểu khi "chuyển vào giỏ hàng"
+        // từ trang Wishlist (nơi không hiển thị tồn kho từng biến thể). Giờ ưu tiên
+        // biến thể còn hàng; chỉ rơi về biến thể đầu tiên nếu không còn biến thể nào
+        // còn hàng (để vẫn báo lỗi tồn kho rõ ràng ở CartService thay vì im lặng bỏ qua).
+        var variant = item.Product.ProductVariants.FirstOrDefault(v => v.StockQuantity > 0)
+            ?? item.Product.ProductVariants.FirstOrDefault();
         if (variant is null)
             throw new WishlistException(400, "Sản phẩm không có biến thể nào.");
 

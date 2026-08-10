@@ -148,8 +148,25 @@ public sealed class ProductService : IProductService
         var existingVariants = product.ProductVariants.ToList();
         var requestVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
 
-        // Remove variants not in request
-        var toRemoveVariants = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
+        // FIX (crash 500): variant nào không còn trong request nhưng đã từng phát sinh
+        // đơn hàng (OrderItem) thì KHÔNG được xoá cứng — chỉ "nghỉ bán" bằng cách đưa
+        // tồn kho về 0, để không vi phạm FK OrderItem.ProductVariantId (không nullable).
+        // Chỉ những variant chưa từng có đơn hàng mới thực sự bị xoá.
+        var candidatesToRemove = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
+        var toRemoveVariants = new List<ProductVariant>();
+        foreach (var variant in candidatesToRemove)
+        {
+            if (await _variantRepository.HasOrdersAsync(variant.Id))
+            {
+                variant.StockQuantity = 0;
+                await _variantRepository.UpdateAsync(variant);
+            }
+            else
+            {
+                toRemoveVariants.Add(variant);
+            }
+        }
+
         if (toRemoveVariants.Count > 0)
         {
             await _variantRepository.DeleteRangeAsync(toRemoveVariants);

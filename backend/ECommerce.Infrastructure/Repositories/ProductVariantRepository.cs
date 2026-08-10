@@ -33,6 +33,7 @@ public sealed class ProductVariantRepository : IProductVariantRepository
     {
         await _db.ProductVariants.AddRangeAsync(variants);
     }
+    
 
     public Task UpdateAsync(ProductVariant variant)
     {
@@ -50,6 +51,28 @@ public sealed class ProductVariantRepository : IProductVariantRepository
     {
         _db.ProductVariants.RemoveRange(variants);
         return Task.CompletedTask;
+    }
+
+    // RACE-CONDITION FIX (BR-02): UPDATE nguyên tử, điều kiện StockQuantity >= quantity
+    // được kiểm tra ngay trong câu SQL (không phải trong C#), nên DB quyết định ai
+    // "thắng" khi có nhiều request cùng trừ kho một variant, thay vì 2 request cùng đọc
+    // được số dư cũ rồi cùng ghi đè (oversell).
+    public async Task<bool> TryDecrementStockAsync(int variantId, int quantity)
+    {
+        var affected = await _db.ProductVariants
+            .Where(v => v.Id == variantId && v.StockQuantity >= quantity)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(v => v.StockQuantity, v => v.StockQuantity - quantity));
+
+        return affected > 0;
+    }
+
+    public async Task IncrementStockAsync(int variantId, int quantity)
+    {
+        await _db.ProductVariants
+            .Where(v => v.Id == variantId)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(v => v.StockQuantity, v => v.StockQuantity + quantity));
     }
 
     public async Task SaveChangesAsync()

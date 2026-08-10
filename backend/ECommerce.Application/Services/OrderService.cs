@@ -32,7 +32,7 @@ public class OrderService : IOrderService
         if (request.PaymentMethod != "COD" && request.PaymentMethod != "VNPay")
             throw new OrderException(400, "Phương thức thanh toán không hợp lệ.");
 
-        // Toàn bộ luồng (kiểm tra tồn kho -> tạo Order -> trừ kho -> xoá giỏ hàng -> tạo Payment)
+        // Toàn bộ luồng (kiểm tra & trừ tồn kho -> tạo Order -> xoá giỏ hàng -> tạo Payment)
         // được bọc trong 1 transaction để đảm bảo tính nguyên tử (atomic) theo đúng thiết kế TH_P401.
         await using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
@@ -45,11 +45,18 @@ public class OrderService : IOrderService
             if (address is null || address.UserId != userId)
                 throw new OrderException(400, "Địa chỉ giao hàng không hợp lệ.");
 
-            // Kiểm tra lại tồn kho tại thời điểm đặt hàng (chống race-condition khi nhiều Customer đặt cùng lúc)
+            // RACE-CONDITION FIX (BR-02): trừ kho bằng UPDATE nguyên tử có điều kiện
+            // (StockQuantity >= quantity), thay cho pattern cũ "đọc số lượng -> kiểm tra
+            // ở C# -> ghi lại qua change tracker" vốn KHÔNG atomic. Với pattern cũ, 2
+            // Customer đặt hàng cùng lúc cho cùng 1 variant có thể cùng đọc được số
+            // lượng còn đủ hàng (vd: còn 1 cái) rồi cùng được phép trừ kho, dẫn tới bán
+            // vượt tồn kho thực tế (vi phạm trực tiếp BR-02). Nếu bất kỳ item nào không
+            // đủ hàng tại thời điểm trừ, toàn bộ transaction rollback (kể cả các item đã
+            // trừ thành công trước đó trong cùng vòng lặp), nên không cần rollback tay.
             foreach (var item in cart.Items)
             {
-                var variant = await _variantRepository.GetByIdAsync(item.VariantId);
-                if (variant is null || variant.StockQuantity < item.Quantity)
+                var decremented = await _variantRepository.TryDecrementStockAsync(item.VariantId, item.Quantity);
+                if (!decremented)
                     throw new OrderException(400, $"Sản phẩm {item.ProductName} không đủ số lượng tồn kho.");
             }
 
@@ -79,14 +86,6 @@ public class OrderService : IOrderService
                     }
                 }
             };
-
-            // Trừ tồn kho
-            foreach (var item in cart.Items)
-            {
-                var variant = await _variantRepository.GetByIdAsync(item.VariantId);
-                variant!.StockQuantity -= item.Quantity;
-                await _variantRepository.UpdateAsync(variant);
-            }
 
             await _orderRepository.AddAsync(order);
             await _orderRepository.SaveChangesAsync();
@@ -160,15 +159,11 @@ public class OrderService : IOrderService
         order.CancelReason = reason;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // Restore stock
+        // Hoàn kho (BR-10) — dùng UPDATE nguyên tử, đồng bộ với TryDecrementStockAsync
+        // ở CreateOrderAsync thay vì đọc-sửa-ghi qua change tracker như trước.
         foreach (var item in order.OrderItems)
         {
-            var variant = await _variantRepository.GetByIdAsync(item.ProductVariantId);
-            if (variant is not null)
-            {
-                variant.StockQuantity += item.Quantity;
-                await _variantRepository.UpdateAsync(variant);
-            }
+            await _variantRepository.IncrementStockAsync(item.ProductVariantId, item.Quantity);
         }
 
         order.OrderStatusLogs.Add(new OrderStatusLog
@@ -216,10 +211,6 @@ public class OrderService : IOrderService
         order.Status = request.Status;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // FIX: trước đây hardcode ChangedBy = 0, gây vi phạm khóa ngoại fk_statuslog_user
-        // (không có User nào có Id = 0) khiến SaveChangesAsync ném lỗi và rollback toàn bộ
-        // cập nhật trạng thái. Giờ dùng đúng userId của Admin đang thực hiện thao tác,
-        // lấy từ JWT token ở OrderController.
         order.OrderStatusLogs.Add(new OrderStatusLog
         {
             Status = request.Status,
@@ -227,23 +218,19 @@ public class OrderService : IOrderService
             ChangedBy = adminUserId
         });
 
-        // Restore stock if cancelled
+        // Hoàn kho nếu Admin hủy đơn — cùng cơ chế atomic với CancelOrderAsync.
         if (request.Status == "Cancelled")
         {
             foreach (var item in order.OrderItems)
             {
-                var variant = await _variantRepository.GetByIdAsync(item.ProductVariantId);
-                if (variant is not null)
-                {
-                    variant.StockQuantity += item.Quantity;
-                    await _variantRepository.UpdateAsync(variant);
-                }
+                await _variantRepository.IncrementStockAsync(item.ProductVariantId, item.Quantity);
             }
         }
 
         await _orderRepository.SaveChangesAsync();
         return MapToResponse(order);
     }
+
     private static OrderResponse MapToResponse(Order order)
     {
         var items = order.OrderItems.Select(i => new OrderItemResponse(
@@ -273,9 +260,6 @@ public class OrderService : IOrderService
 
     private static OrderDetailResponse MapToDetailResponse(Order order)
     {
-        // FIX: HasReviewed lấy từ dữ liệu thật (OrderItem.Review, đã Include ở
-        // OrderRepository.GetByIdWithDetailsAsync), thay vì để frontend tự đoán bằng
-        // 1 signal cục bộ chỉ đúng trong phiên hiện tại.
         var items = order.OrderItems.Select(i => new OrderItemResponse(
             i.Id,
             i.ProductVariantId,

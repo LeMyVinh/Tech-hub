@@ -63,16 +63,20 @@ public sealed class BrandService : IBrandService
         if (brand == null)
             throw new CatalogException(404, "Thương hiệu không tồn tại.");
 
+        // FIX: tương tự CategoryService.DeleteAsync — trước đây brand.IsActive luôn bị
+        // set false kể cả khi đang có sản phẩm Active thuộc thương hiệu này, khiến sản
+        // phẩm biến mất âm thầm khỏi trang khách hàng. Giờ chặn hẳn nếu còn sản phẩm
+        // đang kinh doanh.
         var hasActiveProducts = await _brandRepository.HasActiveProductsAsync(id);
-        brand.IsActive = false;
-
-        await _brandRepository.UpdateAsync(brand);
-        await _brandRepository.SaveChangesAsync();
-
         if (hasActiveProducts)
         {
-            return "Không thể xoá, danh mục/thương hiệu đang có sản phẩm. Đã chuyển sang trạng thái ẩn.";
+            throw new CatalogException(400,
+                "Không thể ẩn thương hiệu đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang thương hiệu khác trước khi ẩn.");
         }
+
+        brand.IsActive = false;
+        await _brandRepository.UpdateAsync(brand);
+        await _brandRepository.SaveChangesAsync();
 
         return "Đã ngừng sử dụng thương hiệu thành công.";
     }

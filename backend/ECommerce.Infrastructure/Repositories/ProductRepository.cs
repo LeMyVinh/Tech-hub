@@ -130,6 +130,10 @@ public sealed class ProductRepository : IProductRepository
     /// <summary>
     /// Trả về danh sách gồm chính categoryId truyền vào và toàn bộ ID các danh mục con
     /// (đệ quy nhiều cấp), dùng để lọc sản phẩm theo cả cây danh mục thay vì chỉ 1 ID duy nhất.
+    /// PERF FIX: trước đây duyệt bằng allCategories.Where(c => c.ParentId == current) bên
+    /// trong vòng lặp BFS -> mỗi bước lại quét tuyến tính toàn bộ danh sách category
+    /// (O(n) mỗi lần, tổng O(n * số cấp)). Giờ gom nhóm 1 lần bằng ToLookup(parentId) nên
+    /// tra cứu con của mỗi node là O(1) trung bình, chỉ còn 1 lần quét toàn bộ danh sách.
     /// </summary>
     private async Task<List<int>> GetCategoryIdsWithDescendantsAsync(int categoryId)
     {
@@ -138,6 +142,10 @@ public sealed class ProductRepository : IProductRepository
             .Select(c => new { c.Id, c.ParentId })
             .ToListAsync();
 
+        var childrenLookup = allCategories
+            .Where(c => c.ParentId.HasValue)
+            .ToLookup(c => c.ParentId!.Value, c => c.Id);
+
         var result = new List<int> { categoryId };
         var queue = new Queue<int>();
         queue.Enqueue(categoryId);
@@ -145,9 +153,8 @@ public sealed class ProductRepository : IProductRepository
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();
-            var children = allCategories.Where(c => c.ParentId == current).Select(c => c.Id);
 
-            foreach (var childId in children)
+            foreach (var childId in childrenLookup[current])
             {
                 if (!result.Contains(childId))
                 {

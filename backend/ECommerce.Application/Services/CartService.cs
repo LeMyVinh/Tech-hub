@@ -25,6 +25,15 @@ public class CartService : ICartService
 
     public async Task<CartResponse> AddToCartAsync(int userId, AddToCartRequest request)
     {
+        // BUG FIX: trước đây không kiểm tra Quantity > 0. Vì điều kiện tồn kho phía dưới
+        // là "variant.StockQuantity < request.Quantity", một Quantity âm (vd: -5) luôn
+        // làm điều kiện đó sai (không bao giờ throw), cho phép thêm số lượng âm vào giỏ
+        // hàng. Hậu quả: TotalAmount/Subtotal bị âm, và khi tạo đơn hàng, hệ thống sẽ
+        // "trừ kho" bằng số âm = CỘNG THÊM tồn kho một cách trái phép, đồng thời tổng
+        // tiền đơn hàng bị sai lệch. Chặn ngay từ đầu vào.
+        if (request.Quantity <= 0)
+            throw new CartException(400, "Số lượng sản phẩm phải lớn hơn 0.");
+
         var variant = await _variantRepository.GetByIdAsync(request.VariantId)
             ?? throw new CartException(404, "Sản phẩm không tồn tại.");
 
