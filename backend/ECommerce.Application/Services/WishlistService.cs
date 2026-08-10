@@ -1,4 +1,5 @@
 using ECommerce.Domain;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Application;
 
@@ -6,11 +7,16 @@ public class WishlistService : IWishlistService
 {
     private readonly IWishlistRepository _wishlistRepository;
     private readonly ICartService _cartService;
+    private readonly IProductRepository _productRepository;
 
-    public WishlistService(IWishlistRepository wishlistRepository, ICartService cartService)
+    public WishlistService(
+        IWishlistRepository wishlistRepository,
+        ICartService cartService,
+        IProductRepository productRepository)
     {
         _wishlistRepository = wishlistRepository;
         _cartService = cartService;
+        _productRepository = productRepository;
     }
 
     public async Task<WishlistResponse> GetWishlistAsync(int userId)
@@ -31,6 +37,12 @@ public class WishlistService : IWishlistService
 
     public async Task<WishlistResponse> AddToWishlistAsync(int userId, int productId)
     {
+        var product = await _productRepository.GetByIdAsync(productId, includeInactive: true)
+            ?? throw new WishlistException(404, "Sản phẩm không tồn tại.");
+
+        if (product.Status != "Active")
+            throw new WishlistException(400, "Sản phẩm hiện không còn kinh doanh.");
+
         var existing = await _wishlistRepository.GetByUserAndProductAsync(userId, productId);
         if (existing is not null)
             throw new WishlistException(400, "Sản phẩm đã có trong danh sách yêu thích.");
@@ -43,7 +55,21 @@ public class WishlistService : IWishlistService
         };
 
         await _wishlistRepository.AddAsync(item);
-        await _wishlistRepository.SaveChangesAsync();
+
+        try
+        {
+            await _wishlistRepository.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // RACE FIX (#2 - double-click nút "Yêu thích"): 2 request cùng lúc đều đọc
+            // "chưa có trong wishlist" (bước GetByUserAndProductAsync ở trên) và cùng cố
+            // INSERT, va vào uq_wishlist_user_product (UserId, ProductId UNIQUE). Trước
+            // đây exception này không được bắt -> lỗi 500 thô. Vì request kia đã thêm
+            // thành công, request này chỉ cần bỏ qua (không coi là lỗi) và trả về
+            // wishlist mới nhất.
+        }
+
         return await GetWishlistAsync(userId);
     }
 
@@ -62,11 +88,6 @@ public class WishlistService : IWishlistService
         var item = await _wishlistRepository.GetByUserAndProductAsync(userId, productId)
             ?? throw new WishlistException(404, "Sản phẩm không có trong danh sách yêu thích.");
 
-        // FIX: trước đây luôn lấy FirstOrDefault() — có thể rơi vào biến thể đã hết
-        // hàng, khiến người dùng bị báo lỗi tồn kho khó hiểu khi "chuyển vào giỏ hàng"
-        // từ trang Wishlist (nơi không hiển thị tồn kho từng biến thể). Giờ ưu tiên
-        // biến thể còn hàng; chỉ rơi về biến thể đầu tiên nếu không còn biến thể nào
-        // còn hàng (để vẫn báo lỗi tồn kho rõ ràng ở CartService thay vì im lặng bỏ qua).
         var variant = item.Product.ProductVariants.FirstOrDefault(v => v.StockQuantity > 0)
             ?? item.Product.ProductVariants.FirstOrDefault();
         if (variant is null)

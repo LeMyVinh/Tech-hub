@@ -91,7 +91,23 @@ export class CartComponent implements OnInit {
   clearCart(): void {
     const token = this.getToken();
     if (!token) return;
-    if (!confirm('Xóa toàn bộ sản phẩm khỏi giỏ hàng?')) return;
+
+    const cart = this.cart();
+    if (!cart || cart.items.length === 0) return;
+
+    // FIX (#4 - Clear cart thiếu chi tiết trong lời xác nhận): trước đây confirm() chỉ
+    // hỏi chung chung "Xóa toàn bộ sản phẩm khỏi giỏ hàng?" mà không cho người dùng
+    // biết đang xóa bao nhiêu sản phẩm / tổng giá trị bao nhiêu, dễ khiến người dùng
+    // bấm nhầm mà không lường được hậu quả. Giờ liệt kê rõ số lượng sản phẩm, số loại
+    // và tổng giá trị trước khi xác nhận.
+    const totalQuantity = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+    const confirmMessage =
+      `Xóa toàn bộ ${totalQuantity} sản phẩm (${cart.items.length} loại) khỏi giỏ hàng?\n` +
+      `Tổng giá trị: ${this.formatVnd(cart.totalAmount)}\n` +
+      `Hành động này không thể hoàn tác.`;
+
+    if (!confirm(confirmMessage)) return;
+
     this.loading.set(true);
     this.cartService.clearCart(token).subscribe({
       next: (cart) => {

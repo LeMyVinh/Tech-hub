@@ -14,10 +14,22 @@ public sealed class ProductVariantRepository : IProductVariantRepository
         _db = db;
     }
 
+    // FIX (#1 - checkout sản phẩm đã bị ẩn): trước đây không Include(Product), nên
+    // CartService/OrderService không có cách nào biết variant đang thuộc sản phẩm đã
+    // bị Admin chuyển Status="Inactive". Một sản phẩm được thêm vào giỏ TRƯỚC KHI bị
+    // ẩn vẫn checkout được bình thường vì code chỉ kiểm tra tồn kho, không kiểm tra
+    // trạng thái kinh doanh. Include ở đây để mọi nơi gọi GetByIdAsync đều có sẵn
+    // variant.Product.Status để kiểm tra.
     public async Task<ProductVariant?> GetByIdAsync(int id)
     {
-        return await _db.ProductVariants.FirstOrDefaultAsync(v => v.Id == id);
+        return await _db.ProductVariants
+            .Include(v => v.Product)
+            .FirstOrDefaultAsync(v => v.Id == id);
     }
+    public async Task<ProductVariant?> GetByIdWithProductAsync(int id)
+{
+    return await GetByIdAsync(id);
+}
 
     public async Task<List<ProductVariant>> GetByProductIdAsync(int productId)
     {
@@ -33,7 +45,7 @@ public sealed class ProductVariantRepository : IProductVariantRepository
     {
         await _db.ProductVariants.AddRangeAsync(variants);
     }
-    
+
 
     public Task UpdateAsync(ProductVariant variant)
     {
@@ -66,6 +78,11 @@ public sealed class ProductVariantRepository : IProductVariantRepository
 
         return affected > 0;
     }
+    public async Task<bool> HasOrdersAsync(int productVariantId)
+{
+    return await _db.OrderItems
+        .AnyAsync(x => x.ProductVariantId == productVariantId);
+}
 
     public async Task IncrementStockAsync(int variantId, int quantity)
     {

@@ -45,14 +45,29 @@ public class OrderService : IOrderService
             if (address is null || address.UserId != userId)
                 throw new OrderException(400, "Địa chỉ giao hàng không hợp lệ.");
 
+            // FIX (#1 - Checkout được sản phẩm đã bị Admin ẩn nếu có sẵn trong giỏ):
+            // trước đây chỉ kiểm tra tồn kho, không kiểm tra sản phẩm còn đang kinh doanh
+            // hay không. Nếu một sản phẩm được thêm vào giỏ TRƯỚC KHI Admin chuyển
+            // Status="Inactive", giỏ hàng vẫn giữ item đó và Customer vẫn đặt được hàng
+            // bình thường dù sản phẩm đã bị ẩn khỏi toàn bộ trang khách hàng. Kiểm tra
+            // riêng một lượt trước khi đụng đến tồn kho, để báo lỗi rõ ràng và không trừ
+            // kho các item hợp lệ đứng trước item lỗi trong danh sách.
+            foreach (var item in cart.Items)
+            {
+                var variantCheck = await _variantRepository.GetByIdAsync(item.VariantId);
+                if (variantCheck is null)
+                    throw new OrderException(400, $"Sản phẩm {item.ProductName} không còn tồn tại.");
+                if (variantCheck.Product.Status != "Active")
+                    throw new OrderException(400, $"Sản phẩm {item.ProductName} hiện không còn kinh doanh. Vui lòng xóa khỏi giỏ hàng.");
+            }
+
             // RACE-CONDITION FIX (BR-02): trừ kho bằng UPDATE nguyên tử có điều kiện
-            // (StockQuantity >= quantity), thay cho pattern cũ "đọc số lượng -> kiểm tra
-            // ở C# -> ghi lại qua change tracker" vốn KHÔNG atomic. Với pattern cũ, 2
-            // Customer đặt hàng cùng lúc cho cùng 1 variant có thể cùng đọc được số
-            // lượng còn đủ hàng (vd: còn 1 cái) rồi cùng được phép trừ kho, dẫn tới bán
-            // vượt tồn kho thực tế (vi phạm trực tiếp BR-02). Nếu bất kỳ item nào không
-            // đủ hàng tại thời điểm trừ, toàn bộ transaction rollback (kể cả các item đã
-            // trừ thành công trước đó trong cùng vòng lặp), nên không cần rollback tay.
+            // (StockQuantity >= quantity), thay cho pattern "đọc số lượng -> kiểm tra ở
+            // C# -> ghi lại qua change tracker" vốn KHÔNG atomic. Với pattern không
+            // atomic, 2 Customer đặt hàng cùng lúc cho cùng 1 variant có thể cùng đọc
+            // được số lượng còn đủ hàng rồi cùng được phép trừ kho, dẫn tới bán vượt tồn
+            // kho thực tế (vi phạm BR-02). Nếu bất kỳ item nào không đủ hàng tại thời
+            // điểm trừ, toàn bộ transaction rollback, không cần rollback tay.
             foreach (var item in cart.Items)
             {
                 var decremented = await _variantRepository.TryDecrementStockAsync(item.VariantId, item.Quantity);
@@ -160,7 +175,7 @@ public class OrderService : IOrderService
         order.UpdatedAt = DateTime.UtcNow;
 
         // Hoàn kho (BR-10) — dùng UPDATE nguyên tử, đồng bộ với TryDecrementStockAsync
-        // ở CreateOrderAsync thay vì đọc-sửa-ghi qua change tracker như trước.
+        // ở CreateOrderAsync thay vì đọc-sửa-ghi qua change tracker.
         foreach (var item in order.OrderItems)
         {
             await _variantRepository.IncrementStockAsync(item.ProductVariantId, item.Quantity);
@@ -211,6 +226,9 @@ public class OrderService : IOrderService
         order.Status = request.Status;
         order.UpdatedAt = DateTime.UtcNow;
 
+        // FIX: dùng đúng userId của Admin đang thực hiện thao tác (lấy từ JWT token ở
+        // OrderController) thay vì hardcode ChangedBy = 0, tránh vi phạm khóa ngoại
+        // fk_statuslog_user (không có User nào có Id = 0).
         order.OrderStatusLogs.Add(new OrderStatusLog
         {
             Status = request.Status,

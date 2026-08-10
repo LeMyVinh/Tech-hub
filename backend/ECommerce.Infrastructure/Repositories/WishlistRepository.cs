@@ -12,6 +12,7 @@ public class WishlistRepository : IWishlistRepository
     {
         _context = context;
     }
+    
 
     public async Task<List<WishlistItem>> GetByUserIdAsync(int userId)
     {
@@ -35,10 +36,25 @@ public class WishlistRepository : IWishlistRepository
             .FirstOrDefaultAsync(w => w.UserId == userId && w.ProductId == productId);
     }
 
-    public async Task AddAsync(WishlistItem item)
+    public async Task<bool> TryAddAsync(WishlistItem item)
     {
-        await _context.WishlistItems.AddAsync(item);
+        try
+        {
+            await _context.WishlistItems.AddAsync(item);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            _context.ChangeTracker.Clear();
+            return false;
+        }
     }
+    public async Task AddAsync(WishlistItem item)
+{
+    await _context.WishlistItems.AddAsync(item);
+    await _context.SaveChangesAsync();
+}
 
     public Task RemoveAsync(WishlistItem item)
     {
