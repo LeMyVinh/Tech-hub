@@ -16,13 +16,18 @@ public class DashboardService : IDashboardService
 
         var data = await _dashboardRepository.GetRawDataAsync(start, end);
 
+        // BUG FIX (#3 - Dashboard hiện 0% tăng trưởng sai khi kỳ trước = 0): trước đây
+        // nếu PreviousPeriodRevenue = 0 (shop mới mở, hoặc khoảng ngày chưa có đơn nào),
+        // công thức luôn trả về 0% dù kỳ này có doanh thu tăng vọt từ 0 lên rất nhiều,
+        // gây hiểu lầm "không đổi" thay vì "tăng trưởng mạnh". Giờ: nếu kỳ trước = 0 mà
+        // kỳ này > 0 thì coi là tăng 100%; nếu cả hai đều = 0 thì mới thực sự là 0%.
         var revenueGrowth = data.PreviousPeriodRevenue > 0
             ? (int)((data.CurrentPeriodRevenue - data.PreviousPeriodRevenue) / data.PreviousPeriodRevenue * 100)
-            : 0;
+            : (data.CurrentPeriodRevenue > 0 ? 100 : 0);
 
         var orderGrowth = data.PreviousPeriodOrders > 0
             ? (int)((data.CurrentPeriodOrders - data.PreviousPeriodOrders) / (decimal)data.PreviousPeriodOrders * 100)
-            : 0;
+            : (data.CurrentPeriodOrders > 0 ? 100 : 0);
 
         return new DashboardSummaryResponse(
             data.CurrentPeriodRevenue,

@@ -14,6 +14,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// PERF FIX (#4): cần cho ProductRepository cache cây danh mục (Category tree)
+// trong memory thay vì load lại toàn bộ bảng Category ở mỗi request search.
+builder.Services.AddMemoryCache();
+
 var frontendUrl = (builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:4200").TrimEnd('/');
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
     .WithOrigins(frontendUrl)

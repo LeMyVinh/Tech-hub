@@ -34,6 +34,8 @@ export interface OrderResponse {
   id: number;
   orderCode: string;
   totalAmount: number;
+  // BUG FIX: backend giờ trả về phí vận chuyển thực tế đã cộng vào totalAmount.
+  shippingFee: number;
   status: string;
   shippingMethod: string;
   cancelReason: string | null;

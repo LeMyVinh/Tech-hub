@@ -13,6 +13,8 @@ public partial class Order
 
     public string ShippingMethod { get; set; } = null!;
 
+    public decimal ShippingFee { get; set; }
+
     public decimal TotalAmount { get; set; }
 
     public string Status { get; set; } = null!;

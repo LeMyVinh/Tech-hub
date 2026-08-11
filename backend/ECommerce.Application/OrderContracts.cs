@@ -16,6 +16,9 @@ public sealed record OrderResponse(
     int Id,
     string OrderCode,
     decimal TotalAmount,
+    // BUG FIX: expose phí vận chuyển thực tế đã được backend tính và cộng vào TotalAmount,
+    // để FE/Admin thấy rõ khoản này thay vì chỉ có một con số tổng gộp.
+    decimal ShippingFee,
     string Status,
     string ShippingMethod,
     string? CancelReason,
@@ -51,6 +54,7 @@ public sealed record OrderDetailResponse(
     int Id,
     string OrderCode,
     decimal TotalAmount,
+    decimal ShippingFee,
     string Status,
     string ShippingMethod,
     string? CancelReason,

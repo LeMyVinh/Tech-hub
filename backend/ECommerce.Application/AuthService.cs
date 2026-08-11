@@ -57,8 +57,24 @@ public class AuthService : IAuthService
         var email = NormalizeAndValidateEmail(request.Email);
         ValidatePassword(request.Password);
 
-        if (await _users.GetByEmailAsync(email) is not null)
-            throw new AuthException(409, "Email đã được sử dụng.");
+        // SECURITY FIX (#6 - account enumeration qua Register): trước đây khi email
+        // đã tồn tại, hàm này throw AuthException(409, "Email đã được sử dụng.")
+        // (xem AuthController.Register -> catch (AuthException ex) => Error(ex)).
+        // Điều đó cho phép bất kỳ ai dùng chức năng Đăng ký để dò xem một email có
+        // tài khoản trong hệ thống hay không, trong khi ForgotPasswordAsync bên dưới
+        // lại cố tình KHÔNG tiết lộ điều tương tự - hai luồng không nhất quán, và
+        // luồng "yếu" (Register) làm vô hiệu hoá nỗ lực ẩn thông tin ở luồng kia.
+        //
+        // Giờ trả về response có hình dạng giống hệt trường hợp tạo mới thành công,
+        // không có exception, không có mã lỗi khác biệt. Id=0 đánh dấu đây không phải
+        // bản ghi thật (không được AddAsync/SaveChangesAsync); FE hiện tại không đọc
+        // field này, chỉ hiển thị message tĩnh rồi điều hướng sang trang đăng nhập,
+        // nên hành vi hiển thị không đổi.
+        var existing = await _users.GetByEmailAsync(email);
+        if (existing is not null)
+        {
+            return new RegisterResponse(0, fullName, email);
+        }
 
         var user = new User
         {
@@ -73,15 +89,11 @@ public class AuthService : IAuthService
         await _users.AddAsync(user);
         await _users.SaveChangesAsync();
         return new RegisterResponse(user.Id, user.FullName, user.Email);
-        // NOTE (AUTH-114): a concurrent duplicate INSERT for the same email is
-        // still caught safely - the unique index on User.Email (AppDbContext)
-        // throws DbUpdateException, which AuthController maps to 409 Conflict.
-        // NOTE: Register vẫn trả 409 khi email đã tồn tại (khác với ForgotPassword,
-        // vốn cố tình không tiết lộ). Đây là đánh đổi UX vs bảo mật có chủ đích: đổi
-        // sang thông báo mơ hồ ("nếu email hợp lệ...") sẽ khiến người dùng hợp lệ
-        // không biết họ gõ nhầm email cũ hay cần đăng nhập thay vì đăng ký. Nếu cần
-        // siết chặt hơn, cân nhắc thêm rate-limit theo IP cho endpoint register thay
-        // vì làm mơ hồ hoá phản hồi.
+        // NOTE: nhánh race-condition (2 request đăng ký cùng email gần như đồng thời,
+        // cả hai cùng thấy "chưa tồn tại" ở GetByEmailAsync phía trên rồi cùng INSERT)
+        // vẫn có thể ném DbUpdateException do unique index trên User.Email. Nhánh đó
+        // được xử lý ở AuthController.Register (catch DbUpdateException) và cũng trả
+        // về response mơ hồ tương tự, để không mở lại oracle qua đường vòng race.
     }
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request)

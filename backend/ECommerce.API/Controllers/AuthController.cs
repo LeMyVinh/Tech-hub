@@ -28,7 +28,20 @@ public sealed class AuthController : ControllerBase
             return StatusCode(StatusCodes.Status201Created, result);
         }
         catch (AuthException ex) { return Error(ex); }
-        catch (DbUpdateException) { return Conflict(new { message = "Email đã được sử dụng." }); }
+        catch (DbUpdateException)
+        {
+            // SECURITY FIX (#6 - account enumeration qua Register): trước đây đây là
+            // nhánh race-condition (2 request đăng ký cùng email gần như đồng thời,
+            // unique index trên User.Email chặn request thua cuộc) và trả thẳng
+            // 409 Conflict "Email đã được sử dụng." - vẫn là một oracle lộ thông tin
+            // email đã tồn tại trong hệ thống, y hệt vấn đề đã sửa ở AuthService cho
+            // nhánh không-race. Giờ trả 201 với response mơ hồ giống hệt nhánh thành
+            // công/email-đã-tồn-tại ở AuthService.RegisterAsync, để không thể phân
+            // biệt được ba trường hợp (tạo mới thật / email đã tồn tại / thua race)
+            // chỉ bằng cách quan sát response.
+            return StatusCode(StatusCodes.Status201Created,
+                new RegisterResponse(0, request.FullName ?? string.Empty, request.Email?.Trim().ToLowerInvariant() ?? string.Empty));
+        }
     }
 
     [HttpPost("login")]

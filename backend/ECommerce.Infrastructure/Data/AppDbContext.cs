@@ -206,6 +206,11 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.ShippingMethod)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'Standard'");
+            // BUG FIX: cột mới lưu phí vận chuyển thực tế được backend tính (không tin
+            // số tiền FE gửi lên) — xem OrderService.ResolveShippingFee.
+            entity.Property(e => e.ShippingFee)
+                .HasPrecision(15, 2)
+                .HasDefaultValueSql("'0.00'");
             entity.Property(e => e.Status)
                 .HasDefaultValueSql("'Pending'")
                 .HasColumnType("enum('Pending','Confirmed','Processing','Shipping','Delivered','Cancelled')");
@@ -307,9 +312,11 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("datetime");
             entity.Property(e => e.Method).HasColumnType("enum('COD','VNPay')");
             entity.Property(e => e.PaidAt).HasColumnType("datetime");
+            // BUG FIX: thêm trạng thái 'Refunded' — khi Admin hủy đơn đã thanh toán VNPay
+            // thành công, hệ thống đánh dấu cần hoàn tiền thay vì im lặng bỏ qua.
             entity.Property(e => e.Status)
                 .HasDefaultValueSql("'Pending'")
-                .HasColumnType("enum('Pending','Success','Failed')");
+                .HasColumnType("enum('Pending','Success','Failed','Refunded')");
             entity.Property(e => e.TransactionCode).HasMaxLength(100);
 
             entity.HasOne(d => d.Order).WithOne(p => p.Payment)

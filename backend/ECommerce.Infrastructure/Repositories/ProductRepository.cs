@@ -2,16 +2,28 @@ using ECommerce.Application;
 using ECommerce.Domain;
 using ECommerce.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace ECommerce.Infrastructure.Repositories;
 
 public sealed class ProductRepository : IProductRepository
 {
     private readonly AppDbContext _db;
+    private readonly IMemoryCache _cache;
 
-    public ProductRepository(AppDbContext db)
+    // PERF FIX (#4): trước đây mỗi lần lọc sản phẩm theo categoryId đều load TOÀN
+    // BỘ bảng Category (Id, ParentId) từ DB rồi BFS trong bộ nhớ để tìm danh mục con.
+    // Cây danh mục là dữ liệu gần như tĩnh — chỉ đổi khi Admin CRUD category (rất
+    // hiếm so với tần suất search sản phẩm của khách) — nên cache ngắn hạn trong
+    // memory là đủ để loại bỏ việc quét toàn bộ bảng ở mỗi request, mà vẫn tự phục
+    // hồi dữ liệu mới trong vài phút nếu Admin vừa sửa danh mục.
+    private const string CategoryTreeCacheKey = "product-repo:category-tree";
+    private static readonly TimeSpan CategoryTreeCacheDuration = TimeSpan.FromMinutes(5);
+
+    public ProductRepository(AppDbContext db, IMemoryCache cache)
     {
         _db = db;
+        _cache = cache;
     }
 
     public async Task<Product?> GetByIdAsync(int id, bool includeInactive = false)
@@ -130,21 +142,20 @@ public sealed class ProductRepository : IProductRepository
     /// <summary>
     /// Trả về danh sách gồm chính categoryId truyền vào và toàn bộ ID các danh mục con
     /// (đệ quy nhiều cấp), dùng để lọc sản phẩm theo cả cây danh mục thay vì chỉ 1 ID duy nhất.
-    /// PERF FIX: trước đây duyệt bằng allCategories.Where(c => c.ParentId == current) bên
-    /// trong vòng lặp BFS -> mỗi bước lại quét tuyến tính toàn bộ danh sách category
-    /// (O(n) mỗi lần, tổng O(n * số cấp)). Giờ gom nhóm 1 lần bằng ToLookup(parentId) nên
-    /// tra cứu con của mỗi node là O(1) trung bình, chỉ còn 1 lần quét toàn bộ danh sách.
+    ///
+    /// PERF FIX (#4): trước đây hàm này load lại TOÀN BỘ bảng Category từ DB ở MỖI
+    /// LẦN GỌI (tức mỗi request search có categoryId). Giờ danh sách phẳng (Id, ParentId)
+    /// được cache trong memory theo <see cref="CategoryTreeCacheDuration"/>, dùng chung
+    /// cho mọi request trong khoảng thời gian đó. Việc duyệt cây (BFS) vẫn dùng
+    /// ToLookup(parentId) để tra cứu con của mỗi node là O(1) trung bình.
+    ///
+    /// Cache tự hết hạn sau vài phút nên nếu Admin vừa thêm/sửa/xóa danh mục, kết quả
+    /// search có thể "trễ" tối đa bằng đúng khoảng thời gian cache — chấp nhận được vì
+    /// đây là thao tác quản trị hiếm, không phải dữ liệu cần realtime tuyệt đối.
     /// </summary>
     private async Task<List<int>> GetCategoryIdsWithDescendantsAsync(int categoryId)
     {
-        var allCategories = await _db.Categories
-            .AsNoTracking()
-            .Select(c => new { c.Id, c.ParentId })
-            .ToListAsync();
-
-        var childrenLookup = allCategories
-            .Where(c => c.ParentId.HasValue)
-            .ToLookup(c => c.ParentId!.Value, c => c.Id);
+        var childrenLookup = await GetCategoryChildrenLookupAsync();
 
         var result = new List<int> { categoryId };
         var queue = new Queue<int>();
@@ -165,6 +176,27 @@ public sealed class ProductRepository : IProductRepository
         }
 
         return result;
+    }
+
+    private async Task<ILookup<int, int>> GetCategoryChildrenLookupAsync()
+    {
+        if (_cache.TryGetValue<ILookup<int, int>>(CategoryTreeCacheKey, out var cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var allCategories = await _db.Categories
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.ParentId })
+            .ToListAsync();
+
+        var lookup = allCategories
+            .Where(c => c.ParentId.HasValue)
+            .ToLookup(c => c.ParentId!.Value, c => c.Id);
+
+        _cache.Set(CategoryTreeCacheKey, lookup, CategoryTreeCacheDuration);
+
+        return lookup;
     }
 
     public async Task<bool> ExistsBySkuAsync(string sku, int? excludeVariantId = null)

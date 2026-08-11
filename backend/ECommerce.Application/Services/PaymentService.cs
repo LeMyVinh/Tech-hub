@@ -186,6 +186,39 @@ public class PaymentService : IPaymentService
         return MapToResponse(payment, order.TotalAmount, null);
     }
 
+    // FIX (Hủy đơn VNPay đã thanh toán không ghi nhận hoàn tiền):
+    // Trước đây OrderService.UpdateOrderStatusAsync / CancelOrderAsync khi chuyển
+    // đơn sang "Cancelled" chỉ hoàn kho (IncrementStockAsync), không hề đụng tới
+    // Payment. Với đơn đã thanh toán VNPay thành công (Payment.Status == "Success"),
+    // sau khi hủy thì Payment vẫn nằm ở "Success" mãi mãi — không có cách nào từ dữ
+    // liệu để biết đơn này cần hoàn tiền hay đã hoàn tiền.
+    //
+    // Method này được gọi ngay sau khi Order chuyển sang Cancelled. Nó chỉ đánh dấu
+    // Payment.Status = "Refunded" để hệ thống (Admin, báo cáo doanh thu, đối soát...)
+    // biết đơn này cần/đã xử lý hoàn tiền. Việc hoàn tiền thực tế qua cổng VNPay vẫn
+    // cần thao tác thủ công qua cổng merchant VNPay (sandbox không hỗ trợ Refund API
+    // tự động dễ tích hợp) hoặc job riêng — method này chỉ đảm bảo trạng thái được
+    // ghi nhận đúng trong hệ thống, không tự gọi cổng thanh toán.
+    public async Task RefundIfPaidAsync(int orderId)
+    {
+        var payment = await _paymentRepository.GetByOrderIdAsync(orderId);
+        if (payment is null)
+            return;
+
+        // Chỉ hoàn tiền cho thanh toán VNPay đã Success. COD không cần "hoàn tiền"
+        // qua hệ thống (chưa thu tiền nếu chưa giao hàng); Payment Pending/Failed
+        // không có gì để hoàn.
+        if (payment.Method != "VNPay" || payment.Status != "Success")
+            return;
+
+        payment.Status = "Refunded";
+        await _paymentRepository.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Order #{OrderId}: đã đánh dấu hoàn tiền (Payment.Status = Refunded) sau khi đơn bị hủy.",
+            orderId);
+    }
+
     private static PaymentResponse MapToResponse(Payment payment, decimal amount, string? paymentUrl)
     {
         return new PaymentResponse(

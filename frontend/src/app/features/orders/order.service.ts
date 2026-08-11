@@ -20,6 +20,9 @@ export interface OrderResponse {
   id: number;
   orderCode: string;
   totalAmount: number;
+  // BUG FIX: phí vận chuyển thực tế đã được backend tính và cộng vào totalAmount
+  // (trước đây "Express" chỉ là trang trí trên UI, không ảnh hưởng số tiền thật thu).
+  shippingFee: number;
   status: string;
   shippingMethod: string;
   cancelReason: string | null;
@@ -49,6 +52,8 @@ export interface PaymentResponse {
   id: number;
   method: string;
   amount: number;
+  // BUG FIX (#2): có thể nhận giá trị "Refunded" khi Admin hủy đơn đã thanh toán
+  // VNPay thành công, đánh dấu đơn này cần được hoàn tiền.
   status: string;
   transactionCode: string | null;
   paidAt: string | null;
