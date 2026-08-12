@@ -12,6 +12,9 @@ public class AuthService : IAuthService
     private const int PasswordMaxLength = 100;
     private const int EmailMaxLength = 254;
 
+    // EMAIL VERIFICATION: liên kết xác thực có hiệu lực trong 24 giờ.
+    private const int EmailVerificationLifetimeHours = 24;
+
     // AUTH-079 fix: brute-force lockout thresholds.
     private const int MaxFailedLoginAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -32,23 +35,29 @@ public class AuthService : IAuthService
     private readonly IRoleRepository _roles;
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IPasswordResetTokenRepository _passwordResetTokens;
+    private readonly IEmailVerificationTokenRepository _emailVerificationTokens;
     private readonly IJwtTokenGenerator _jwt;
     private readonly IPasswordResetEmailSender _emailSender;
+    private readonly IEmailVerificationEmailSender _verificationEmailSender;
 
     public AuthService(
         IUserRepository users,
         IRoleRepository roles,
         IRefreshTokenRepository refreshTokens,
         IPasswordResetTokenRepository passwordResetTokens,
+        IEmailVerificationTokenRepository emailVerificationTokens,
         IJwtTokenGenerator jwt,
-        IPasswordResetEmailSender emailSender)
+        IPasswordResetEmailSender emailSender,
+        IEmailVerificationEmailSender verificationEmailSender)
     {
         _users = users;
         _roles = roles;
         _refreshTokens = refreshTokens;
         _passwordResetTokens = passwordResetTokens;
+        _emailVerificationTokens = emailVerificationTokens;
         _jwt = jwt;
         _emailSender = emailSender;
+        _verificationEmailSender = verificationEmailSender;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
@@ -69,7 +78,8 @@ public class AuthService : IAuthService
         // không có exception, không có mã lỗi khác biệt. Id=0 đánh dấu đây không phải
         // bản ghi thật (không được AddAsync/SaveChangesAsync); FE hiện tại không đọc
         // field này, chỉ hiển thị message tĩnh rồi điều hướng sang trang đăng nhập,
-        // nên hành vi hiển thị không đổi.
+        // nên hành vi hiển thị không đổi. Đồng thời KHÔNG gửi email xác thực trong
+        // trường hợp này — chủ tài khoản thật (nếu có) đã có sẵn email của họ.
         var existing = await _users.GetByEmailAsync(email);
         if (existing is not null)
         {
@@ -83,11 +93,16 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password!),
             Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
             RoleId = await _roles.GetRoleIdByNameAsync("Customer"),
-            IsActive = true
+            IsActive = true,
+            EmailVerified = false
         };
 
         await _users.AddAsync(user);
         await _users.SaveChangesAsync();
+
+        // EMAIL VERIFICATION: gửi email xác thực ngay sau khi tạo tài khoản.
+        await SendVerificationEmailAsync(user);
+
         return new RegisterResponse(user.Id, user.FullName, user.Email);
         // NOTE: nhánh race-condition (2 request đăng ký cùng email gần như đồng thời,
         // cả hai cùng thấy "chưa tồn tại" ở GetByEmailAsync phía trên rồi cùng INSERT)
@@ -123,6 +138,12 @@ public class AuthService : IAuthService
 
         if (user.IsActive != true)
             throw new AuthException(403, "Tài khoản của bạn đã bị khoá.");
+
+        // EMAIL VERIFICATION: chặn đăng nhập cho tới khi email được xác thực.
+        // Kiểm tra sau khi đã xác nhận mật khẩu đúng, để không tiết lộ trạng thái
+        // xác thực cho người không biết mật khẩu.
+        if (!user.EmailVerified)
+            throw new AuthException(403, "Email của bạn chưa được xác thực. Vui lòng kiểm tra hộp thư (hoặc bấm 'Gửi lại email xác thực').");
 
         if (user.FailedLoginAttempts > 0 || user.LockedUntil.HasValue)
         {
@@ -244,6 +265,52 @@ public class AuthService : IAuthService
         // của chính phiên hiện tại (client sẽ cần đăng nhập lại, đây là hành vi mong
         // muốn: "đổi mật khẩu" nên đăng xuất khỏi mọi nơi để an toàn).
         await _refreshTokens.RevokeAllByUserIdAsync(userId);
+    }
+
+    // EMAIL VERIFICATION
+    public async Task VerifyEmailAsync(VerifyEmailRequest request)
+    {
+        var tokenValue = Require(request.Token, "Token xác thực không được để trống.");
+        var token = await _emailVerificationTokens.GetByTokenAsync(tokenValue);
+
+        if (token is null || token.IsUsed || token.ExpiredAt <= DateTime.UtcNow)
+            throw new AuthException(400, "Liên kết xác thực email không còn hiệu lực. Vui lòng yêu cầu gửi lại.");
+
+        if (!token.User.EmailVerified)
+        {
+            token.User.EmailVerified = true;
+        }
+
+        token.IsUsed = true;
+        await _emailVerificationTokens.SaveChangesAsync();
+    }
+
+    // EMAIL VERIFICATION
+    public async Task ResendVerificationEmailAsync(ResendVerificationEmailRequest request)
+    {
+        var email = NormalizeAndValidateEmail(request.Email);
+        var user = await _users.GetByEmailAsync(email);
+
+        // Không tiết lộ tài khoản có tồn tại hay không, cùng nguyên tắc với ForgotPasswordAsync.
+        if (user is null || user.EmailVerified) return;
+
+        await SendVerificationEmailAsync(user);
+    }
+
+    private async Task SendVerificationEmailAsync(User user)
+    {
+        await _emailVerificationTokens.InvalidateActiveTokensByUserIdAsync(user.Id);
+
+        var token = _jwt.GenerateRefreshToken(); // tái sử dụng generator random-token an toàn sẵn có
+        await _emailVerificationTokens.AddAsync(new EmailVerificationToken
+        {
+            UserId = user.Id,
+            Token = token,
+            ExpiredAt = DateTime.UtcNow.AddHours(EmailVerificationLifetimeHours),
+            IsUsed = false
+        });
+        await _emailVerificationTokens.SaveChangesAsync();
+        await _verificationEmailSender.SendAsync(user, token);
     }
 
     private async Task<LoginResponse> IssueTokensAsync(User user)

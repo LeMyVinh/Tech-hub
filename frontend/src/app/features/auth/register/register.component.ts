@@ -102,9 +102,11 @@ export class RegisterComponent {
 
     this.auth.register(request).subscribe({
       next: () => {
-        this.message.set('Đăng ký thành công. Hãy đăng nhập để tiếp tục.');
+        // EMAIL VERIFICATION: đăng ký xong không tự đăng nhập được ngay nữa, phải
+        // xác thực email trước. Hiển thị rõ hướng dẫn thay vì message chung chung.
+        this.message.set('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản trước khi đăng nhập.');
         this.loading.set(false);
-        setTimeout(() => this.router.navigate(['/auth/login']), 1500);
+        setTimeout(() => this.router.navigate(['/auth/login']), 2500);
       },
       error: err => {
         this.error.set(err.error?.message ?? 'Không thể kết nối API.');

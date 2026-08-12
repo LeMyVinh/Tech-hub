@@ -32,6 +32,13 @@ const routes: Routes = [
     loadComponent: () =>
       import('./reset-password/reset-password.component').then(m => m.ResetPasswordComponent),
   },
+  {
+    // EMAIL VERIFICATION: cũng KHÔNG gắn guestGuard, cùng lý do như reset-password —
+    // được mở từ link trong email, độc lập với phiên đăng nhập hiện tại của trình duyệt.
+    path: 'verify-email',
+    loadComponent: () =>
+      import('./verify-email/verify-email.component').then(m => m.VerifyEmailComponent),
+  },
 ];
 
 export default routes;

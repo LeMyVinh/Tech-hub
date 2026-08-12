@@ -1,0 +1,20 @@
+<div class="auth-wrapper">
+  <section class="auth-card">
+    <div class="heading">
+      <h2>Xác thực email</h2>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <p>Đang xác thực...</p>
+      </div>
+    } @else if (error()) {
+      <div class="feedback error">{{ error() }}</div>
+      <a class="link-button" routerLink="/auth/login">← Quay lại đăng nhập</a>
+    } @else {
+      <div class="feedback success">{{ message() }}</div>
+      <a class="primary-button" routerLink="/auth/login">Đăng nhập ngay</a>
+    }
+  </section>
+</div>

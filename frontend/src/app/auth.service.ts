@@ -59,6 +59,16 @@ export class AuthService {
     });
   }
 
+  // EMAIL VERIFICATION
+  verifyEmail(token: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/verify-email`, { token });
+  }
+
+  // EMAIL VERIFICATION
+  resendVerification(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/resend-verification`, { email });
+  }
+
   logout(refreshToken: string | undefined): Observable<unknown> {
     return this.http.post(`${this.apiUrl}/logout`, { refreshToken }).pipe(
       tap(() => {

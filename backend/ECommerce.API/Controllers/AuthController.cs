@@ -100,5 +100,29 @@ public sealed class AuthController : ControllerBase
         catch (AuthException ex) { return Error(ex); }
     }
 
+    // EMAIL VERIFICATION
+    [HttpPost("verify-email")]
+    public async Task<IActionResult> VerifyEmail(VerifyEmailRequest request)
+    {
+        try
+        {
+            await _authService.VerifyEmailAsync(request);
+            return Ok(new { message = "Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ." });
+        }
+        catch (AuthException ex) { return Error(ex); }
+    }
+
+    // EMAIL VERIFICATION
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification(ResendVerificationEmailRequest request)
+    {
+        try
+        {
+            await _authService.ResendVerificationEmailAsync(request);
+            return Ok(new { message = "Nếu email tồn tại và chưa xác thực, chúng tôi đã gửi lại liên kết xác thực." });
+        }
+        catch (AuthException ex) { return Error(ex); }
+    }
+
     private ObjectResult Error(AuthException exception) => StatusCode(exception.StatusCode, new { message = exception.Message });
 }

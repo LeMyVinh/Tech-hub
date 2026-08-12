@@ -1,0 +1,116 @@
+:host { display: block; }
+
+.auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 80%, rgba(124, 58, 237, 0.08) 0%, transparent 50%);
+    pointer-events: none;
+  }
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: clamp(2rem, 5vw, 2.5rem);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.heading {
+  h2 {
+    margin: 0 0 1.25rem;
+    color: var(--color-text);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+.loading-box {
+  padding: 1rem 0;
+
+  .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 0.75rem;
+  }
+
+  p { color: var(--color-text-muted); font-size: 0.9rem; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.feedback {
+  border-radius: var(--radius-md);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  font-weight: 500;
+  margin-bottom: 1rem;
+
+  &.error {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+    border: 1px solid rgba(220, 38, 38, 0.1);
+  }
+
+  &.success {
+    background: var(--color-success-light);
+    color: var(--color-success);
+    border: 1px solid rgba(5, 150, 105, 0.1);
+  }
+}
+
+.link-button {
+  display: inline-block;
+  color: var(--color-primary);
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 0.85rem;
+
+  &:hover { opacity: 0.8; text-decoration: none; }
+}
+
+.primary-button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  background: var(--color-primary);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: center;
+  text-decoration: none;
+  transition: all 0.15s ease;
+
+  &:hover { background: var(--color-primary-hover); text-decoration: none; }
+}

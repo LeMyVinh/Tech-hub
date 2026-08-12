@@ -28,6 +28,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<Category> Categories { get; set; }
 
+    public virtual DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
+
     public virtual DbSet<Order> Orders { get; set; }
 
     public virtual DbSet<OrderItem> OrderItems { get; set; }
@@ -185,6 +187,27 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.Parent).WithMany(p => p.InverseParent)
                 .HasForeignKey(d => d.ParentId)
                 .HasConstraintName("fk_category_parent");
+        });
+
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("EmailVerificationToken");
+
+            entity.HasIndex(e => e.Token, "Token").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "fk_emailverify_user");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
+            entity.Property(e => e.Token).HasMaxLength(100);
+
+            entity.HasOne(d => d.User).WithMany(p => p.EmailVerificationTokens)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_emailverify_user");
         });
 
         modelBuilder.Entity<Order>(entity =>
@@ -498,6 +521,9 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
             entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.EmailVerified)
+                .IsRequired()
+                .HasDefaultValueSql("'0'");
             entity.Property(e => e.FullName).HasMaxLength(150);
             entity.Property(e => e.IsActive)
                 .IsRequired()

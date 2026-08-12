@@ -14,6 +14,10 @@ public sealed record ResetPasswordRequest(string? Token, string? NewPassword);
 // Angular form (which the API cannot trust, e.g. direct curl/Postman calls).
 public sealed record ChangePasswordRequest(string? OldPassword, string? NewPassword, string? ConfirmNewPassword);
 
+// EMAIL VERIFICATION
+public sealed record VerifyEmailRequest(string? Token);
+public sealed record ResendVerificationEmailRequest(string? Email);
+
 public sealed class AuthException : Exception
 {
     public AuthException(int statusCode, string message) : base(message) => StatusCode = statusCode;

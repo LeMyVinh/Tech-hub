@@ -31,9 +31,15 @@ public partial class User
 
     public DateTime? LockedUntil { get; set; }
 
+    // EMAIL VERIFICATION: false cho tới khi user bấm link xác thực gửi qua email.
+    // Login bị chặn (403) khi cờ này còn false, xem AuthService.LoginAsync.
+    public bool EmailVerified { get; set; }
+
     public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
 
     public virtual Cart? Cart { get; set; }
+
+    public virtual ICollection<EmailVerificationToken> EmailVerificationTokens { get; set; } = new List<EmailVerificationToken>();
 
     public virtual ICollection<OrderStatusLog> OrderStatusLogs { get; set; } = new List<OrderStatusLog>();
 
