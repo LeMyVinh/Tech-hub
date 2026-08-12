@@ -188,27 +188,27 @@ public partial class AppDbContext : DbContext
                 .HasForeignKey(d => d.ParentId)
                 .HasConstraintName("fk_category_parent");
         });
-
         modelBuilder.Entity<EmailVerificationToken>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
+{
+    entity.HasKey(e => e.Id).HasName("PRIMARY");
 
-            entity.ToTable("EmailVerificationToken");
+    entity.ToTable("EmailVerificationToken");
 
-            entity.HasIndex(e => e.Token, "Token").IsUnique();
+    // OTP: không còn unique toàn hệ thống, chỉ unique/tra cứu theo (UserId, Token)
+    // vì mã OTP 6 số có thể trùng giữa nhiều user khác nhau.
+    entity.HasIndex(e => new { e.UserId, e.Token }, "idx_emailverify_user_token");
 
-            entity.HasIndex(e => e.UserId, "fk_emailverify_user");
+    entity.Property(e => e.CreatedAt)
+        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+        .HasColumnType("datetime");
+    entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
+    entity.Property(e => e.Token).HasMaxLength(10);
 
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("datetime");
-            entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
-            entity.Property(e => e.Token).HasMaxLength(100);
+    entity.HasOne(d => d.User).WithMany(p => p.EmailVerificationTokens)
+        .HasForeignKey(d => d.UserId)
+        .HasConstraintName("fk_emailverify_user");
+});
 
-            entity.HasOne(d => d.User).WithMany(p => p.EmailVerificationTokens)
-                .HasForeignKey(d => d.UserId)
-                .HasConstraintName("fk_emailverify_user");
-        });
 
         modelBuilder.Entity<Order>(entity =>
         {

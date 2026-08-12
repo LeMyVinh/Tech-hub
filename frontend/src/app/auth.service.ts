@@ -59,9 +59,9 @@ export class AuthService {
     });
   }
 
-  // EMAIL VERIFICATION
-  verifyEmail(token: string): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.apiUrl}/verify-email`, { token });
+ // EMAIL VERIFICATION (OTP)
+  verifyEmail(email: string, otp: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/verify-email`, { email, otp });
   }
 
   // EMAIL VERIFICATION

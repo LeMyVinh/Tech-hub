@@ -12,12 +12,16 @@ public sealed class EmailVerificationTokenRepository : IEmailVerificationTokenRe
 
     public async Task AddAsync(EmailVerificationToken token) => await _db.EmailVerificationTokens.AddAsync(token);
 
-    public Task<EmailVerificationToken?> GetByTokenAsync(string token) =>
-        _db.EmailVerificationTokens.Include(t => t.User).FirstOrDefaultAsync(t => t.Token == token);
+    public Task<EmailVerificationToken?> GetActiveByUserIdAndCodeAsync(int userId, string code)
+    {
+        return _db.EmailVerificationTokens
+            .Where(t => t.UserId == userId && t.Token == code && !t.IsUsed && t.ExpiredAt > DateTime.UtcNow)
+            .OrderByDescending(t => t.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
 
-    // Đóng toàn bộ token xác thực còn hiệu lực (chưa dùng, chưa hết hạn) của user
-    // bằng 1 câu UPDATE duy nhất, tránh nhiều token sống song song khi user bấm
-    // "gửi lại" nhiều lần.
+    // Đóng toàn bộ OTP còn hiệu lực của user bằng 1 câu UPDATE, tránh nhiều mã sống
+    // song song khi user bấm "Gửi lại mã" nhiều lần.
     public async Task InvalidateActiveTokensByUserIdAsync(int userId)
     {
         await _db.EmailVerificationTokens

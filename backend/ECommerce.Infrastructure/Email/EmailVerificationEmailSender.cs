@@ -8,9 +8,9 @@ using Microsoft.Extensions.Logging;
 namespace ECommerce.Infrastructure.Email;
 
 /// <summary>
-/// Gửi email yêu cầu xác thực địa chỉ email sau khi đăng ký. Dùng chung cấu hình
-/// SMTP với OrderConfirmationEmailSender (mục EmailSettings trong appsettings).
-/// Nếu SMTP chưa cấu hình (môi trường Development), chỉ ghi log link thay vì gửi thật.
+/// Gửi email chứa mã OTP 6 chữ số để xác thực địa chỉ email sau khi đăng ký.
+/// Dùng chung cấu hình SMTP với OrderConfirmationEmailSender (mục EmailSettings).
+/// Nếu SMTP chưa cấu hình (môi trường Development), chỉ ghi log mã OTP thay vì gửi thật.
 /// </summary>
 public sealed class EmailVerificationEmailSender : IEmailVerificationEmailSender
 {
@@ -23,15 +23,13 @@ public sealed class EmailVerificationEmailSender : IEmailVerificationEmailSender
         _logger = logger;
     }
 
-    public async Task SendAsync(User user, string verificationToken, CancellationToken cancellationToken = default)
+    public async Task SendAsync(User user, string otpCode, CancellationToken cancellationToken = default)
     {
-        var baseUrl = _configuration["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
-        var verifyUrl = $"{baseUrl}/auth/verify-email?token={Uri.EscapeDataString(verificationToken)}";
         var host = _configuration["EmailSettings:SmtpServer"];
 
         if (string.IsNullOrWhiteSpace(host))
         {
-            _logger.LogWarning("SMTP chưa được cấu hình (thiếu EmailSettings:SmtpServer). Link xác thực email cho {Email}: {VerifyUrl}", user.Email, verifyUrl);
+            _logger.LogWarning("SMTP chưa được cấu hình (thiếu EmailSettings:SmtpServer). Mã OTP xác thực email cho {Email}: {Otp}", user.Email, otpCode);
             return;
         }
 
@@ -42,23 +40,20 @@ public sealed class EmailVerificationEmailSender : IEmailVerificationEmailSender
 
         using var message = new MailMessage(from, user.Email)
         {
-            Subject = "TechHub - Xác thực địa chỉ email của bạn",
+            Subject = "TechHub - Mã xác thực email của bạn",
             IsBodyHtml = true,
             BodyEncoding = System.Text.Encoding.UTF8,
             SubjectEncoding = System.Text.Encoding.UTF8,
             Body = $@"
-                <div style=""font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1e293b;"">
+                <div style=""font-family:Arial,sans-serif;max-width:480px;margin:0 auto;color:#1e293b;"">
                     <div style=""background:#2563eb;padding:20px;text-align:center;"">
                         <h1 style=""color:#ffffff;margin:0;font-size:20px;"">TECHHUB</h1>
                     </div>
-                    <div style=""padding:24px;"">
-                        <h2>Xin chào {user.FullName},</h2>
-                        <p>Cảm ơn bạn đã đăng ký tài khoản TechHub. Vui lòng xác thực địa chỉ email này để có thể đăng nhập:</p>
-                        <p style=""text-align:center;margin:24px 0;"">
-                            <a href=""{verifyUrl}"" style=""background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;"">Xác thực email</a>
-                        </p>
-                        <p>Hoặc mở liên kết sau:<br/><a href=""{verifyUrl}"">{verifyUrl}</a></p>
-                        <p style=""color:#64748b;font-size:13px;margin-top:24px;"">Liên kết có hiệu lực trong 24 giờ. Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email.</p>
+                    <div style=""padding:24px;text-align:center;"">
+                        <h2 style=""text-align:left;"">Xin chào {user.FullName},</h2>
+                        <p style=""text-align:left;"">Cảm ơn bạn đã đăng ký tài khoản TechHub. Vui lòng nhập mã bên dưới để xác thực email và hoàn tất đăng ký:</p>
+                        <p style=""font-size:34px;font-weight:800;letter-spacing:10px;color:#2563eb;margin:24px 0;"">{otpCode}</p>
+                        <p style=""text-align:left;color:#64748b;font-size:13px;"">Mã có hiệu lực trong 10 phút. Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email.</p>
                     </div>
                 </div>",
         };
@@ -80,12 +75,12 @@ public sealed class EmailVerificationEmailSender : IEmailVerificationEmailSender
         try
         {
             await client.SendMailAsync(message, cancellationToken);
-            _logger.LogInformation("Đã gửi email xác thực cho {Email}.", user.Email);
+            _logger.LogInformation("Đã gửi mã OTP xác thực cho {Email}.", user.Email);
         }
         catch (SmtpException ex)
         {
             _logger.LogError(ex,
-                "Gửi SMTP thất bại (StatusCode={StatusCode}) khi gửi email xác thực tới {Email}. " +
+                "Gửi SMTP thất bại (StatusCode={StatusCode}) khi gửi mã OTP tới {Email}. " +
                 "Kiểm tra lại: (1) EmailSettings:Password phải là Gmail App Password 16 ký tự, " +
                 "(2) tài khoản Gmail đã bật 2-Step Verification, (3) cổng {Port} không bị firewall chặn.",
                 ex.StatusCode, user.Email, port);

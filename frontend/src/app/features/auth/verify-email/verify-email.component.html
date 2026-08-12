@@ -2,19 +2,39 @@
   <section class="auth-card">
     <div class="heading">
       <h2>Xác thực email</h2>
+      @if (email) {
+        <p>Chúng tôi đã gửi mã OTP gồm 6 chữ số đến <strong>{{ email }}</strong>. Vui lòng nhập mã để hoàn tất đăng ký.</p>
+      }
     </div>
 
-    @if (loading()) {
-      <div class="loading-box">
-        <div class="spinner"></div>
-        <p>Đang xác thực...</p>
-      </div>
-    } @else if (error()) {
+    @if (error()) {
       <div class="feedback error">{{ error() }}</div>
-      <a class="link-button" routerLink="/auth/login">← Quay lại đăng nhập</a>
-    } @else {
-      <div class="feedback success">{{ message() }}</div>
-      <a class="primary-button" routerLink="/auth/login">Đăng nhập ngay</a>
     }
+    @if (message()) {
+      <div class="feedback success">{{ message() }}</div>
+    }
+
+    <form (ngSubmit)="submit()">
+      <label>
+        Mã OTP
+        <input
+          type="text"
+          inputmode="numeric"
+          maxlength="6"
+          name="otp"
+          [(ngModel)]="otp"
+          placeholder="Nhập mã 6 chữ số"
+          required
+        />
+      </label>
+      <button class="primary-button" type="submit" [disabled]="loading() || !email">
+        {{ loading() ? 'Đang xác thực...' : 'Xác nhận' }}
+      </button>
+      <button type="button" class="link-button" [disabled]="resending() || !email" (click)="resend()">
+        {{ resending() ? 'Đang gửi lại...' : 'Gửi lại mã OTP' }}
+      </button>
+    </form>
+
+    <a class="link-button" routerLink="/auth/login">← Quay lại đăng nhập</a>
   </section>
 </div>

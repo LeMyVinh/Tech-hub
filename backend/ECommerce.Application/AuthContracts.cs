@@ -15,7 +15,8 @@ public sealed record ResetPasswordRequest(string? Token, string? NewPassword);
 public sealed record ChangePasswordRequest(string? OldPassword, string? NewPassword, string? ConfirmNewPassword);
 
 // EMAIL VERIFICATION
-public sealed record VerifyEmailRequest(string? Token);
+// EMAIL VERIFICATION (OTP)
+public sealed record VerifyEmailRequest(string? Email, string? Otp);
 public sealed record ResendVerificationEmailRequest(string? Email);
 
 public sealed class AuthException : Exception
