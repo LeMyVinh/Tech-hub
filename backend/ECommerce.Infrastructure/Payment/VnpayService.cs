@@ -1,16 +1,13 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using ECommerce.Application;
 using Microsoft.Extensions.Options;
 
 namespace ECommerce.Infrastructure.PaymentGateway;
 
-/// <summary>
-/// Cài đặt VNPay theo tài liệu tích hợp chính thức (sandbox):
-/// - Ký request: sắp xếp tham số theo key (ordinal), URL-encode key/value, nối bằng "&amp;", HMAC-SHA512 với HashSecret.
-/// - Xác thực callback: cùng thuật toán, bỏ qua vnp_SecureHash/vnp_SecureHashType khi tính lại checksum.
-/// </summary>
 public sealed class VnpayService : IVnpayService
 {
     private readonly VnpaySettings _settings;
@@ -35,7 +32,6 @@ public sealed class VnpayService : IVnpayService
             ["vnp_Locale"] = "vn",
             ["vnp_ReturnUrl"] = request.ReturnUrl,
             ["vnp_IpAddr"] = request.ClientIp,
-            // VNPay yêu cầu giờ GMT+7; Việt Nam không có DST nên cộng cứng 7 giờ là đủ chính xác.
             ["vnp_CreateDate"] = DateTime.UtcNow.AddHours(7).ToString("yyyyMMddHHmmss"),
         };
 
@@ -53,7 +49,7 @@ public sealed class VnpayService : IVnpayService
         }
 
         if (dataToSign.Length > 0)
-            dataToSign.Length--; // bỏ dấu '&' cuối cùng trước khi ký
+            dataToSign.Length--;
 
         var secureHash = HmacSha512(dataToSign.ToString());
         return $"{_settings.BaseUrl}?{queryString}vnp_SecureHash={secureHash}";
@@ -92,5 +88,79 @@ public sealed class VnpayService : IVnpayService
             sb.Append(b.ToString("x2"));
 
         return sb.ToString();
+    }
+
+    public async Task<VnpayRefundResult> RefundAsync(VnpayRefundRequest request, CancellationToken ct = default)
+    {
+        var requestId = Guid.NewGuid().ToString("N")[..20];
+        var createDate = DateTime.UtcNow.AddHours(7).ToString("yyyyMMddHHmmss");
+        var amount = (request.AmountVnd * 100).ToString();
+        var transactionType = request.FullRefund ? "02" : "03";
+        var transactionNo = string.IsNullOrWhiteSpace(request.TransactionNo) ? "0" : request.TransactionNo;
+        var version = string.IsNullOrWhiteSpace(_settings.Version) ? "2.1.0" : _settings.Version;
+        const string command = "refund";
+
+        // Hash theo tài liệu VNPay refund: nối bằng |
+        var data =
+            $"{requestId}|{version}|{command}|{_settings.TmnCode}|{transactionType}|" +
+            $"{request.TxnRef}|{amount}|{transactionNo}|{request.TransactionDate}|" +
+            $"{request.CreateBy}|{createDate}|{request.ClientIp}|{request.OrderInfo}";
+
+        var secureHash = HmacSha512(data);
+
+        var body = new Dictionary<string, string>
+        {
+            ["vnp_RequestId"] = requestId,
+            ["vnp_Version"] = version,
+            ["vnp_Command"] = command,
+            ["vnp_TmnCode"] = _settings.TmnCode,
+            ["vnp_TransactionType"] = transactionType,
+            ["vnp_TxnRef"] = request.TxnRef,
+            ["vnp_Amount"] = amount,
+            ["vnp_TransactionNo"] = transactionNo,
+            ["vnp_TransactionDate"] = request.TransactionDate,
+            ["vnp_CreateBy"] = request.CreateBy,
+            ["vnp_CreateDate"] = createDate,
+            ["vnp_IpAddr"] = request.ClientIp,
+            ["vnp_OrderInfo"] = request.OrderInfo,
+            ["vnp_SecureHash"] = secureHash
+        };
+
+        var apiUrl = string.IsNullOrWhiteSpace(_settings.ApiUrl)
+            ? "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
+            : _settings.ApiUrl;
+
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var response = await http.PostAsJsonAsync(apiUrl, body, ct);
+        var json = await response.Content.ReadAsStringAsync(ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new VnpayRefundResult(
+                false,
+                "HTTP",
+                $"HTTP {(int)response.StatusCode}: {json}",
+                null);
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        string Get(string name)
+        {
+            if (!root.TryGetProperty(name, out var p)) return "";
+            return p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "") : p.ToString();
+        }
+
+        var code = Get("vnp_ResponseCode");
+        var message = Get("vnp_Message");
+        var responseIdRaw = Get("vnp_ResponseId");
+        var responseId = string.IsNullOrWhiteSpace(responseIdRaw) ? null : responseIdRaw;
+
+        return new VnpayRefundResult(
+            Success: code == "00",
+            ResponseCode: code,
+            Message: string.IsNullOrWhiteSpace(message) ? $"ResponseCode={code}" : message,
+            ResponseId: responseId);
     }
 }

@@ -1,9 +1,21 @@
 <div class="auth-wrapper">
   <section class="auth-card">
+    <div class="icon-badge" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+      </svg>
+    </div>
+
     <div class="heading">
       <h2>Xác thực email</h2>
       @if (email) {
-        <p>Chúng tôi đã gửi mã OTP gồm 6 chữ số đến <strong>{{ email }}</strong>. Vui lòng nhập mã để hoàn tất đăng ký.</p>
+        <p>
+          Chúng tôi đã gửi mã OTP 6 số đến<br />
+          <strong class="email-highlight">{{ email }}</strong>
+        </p>
+      } @else {
+        <p>Không tìm thấy email. Vui lòng đăng ký lại.</p>
       }
     </div>
 
@@ -18,23 +30,38 @@
       <label>
         Mã OTP
         <input
+          class="otp-input"
           type="text"
           inputmode="numeric"
+          autocomplete="one-time-code"
           maxlength="6"
           name="otp"
           [(ngModel)]="otp"
-          placeholder="Nhập mã 6 chữ số"
+          (input)="otp = otp.replace(/\D/g, '').slice(0, 6)"
+          placeholder="••••••"
           required
         />
       </label>
-      <button class="primary-button" type="submit" [disabled]="loading() || !email">
+
+      <button class="primary-button" type="submit" [disabled]="loading() || !email || otp.length !== 6">
         {{ loading() ? 'Đang xác thực...' : 'Xác nhận' }}
-      </button>
-      <button type="button" class="link-button" [disabled]="resending() || !email" (click)="resend()">
-        {{ resending() ? 'Đang gửi lại...' : 'Gửi lại mã OTP' }}
       </button>
     </form>
 
-    <a class="link-button" routerLink="/auth/login">← Quay lại đăng nhập</a>
+    <div class="resend-row">
+      <span>Không nhận được mã?</span>
+      <button
+        type="button"
+        class="link-button"
+        [disabled]="resending() || !email"
+        (click)="resend()"
+      >
+        {{ resending() ? 'Đang gửi lại...' : 'Gửi lại mã OTP' }}
+      </button>
+    </div>
+
+    <div class="footer-link">
+      <a routerLink="/auth/login">← Quay lại đăng nhập</a>
+    </div>
   </section>
 </div>

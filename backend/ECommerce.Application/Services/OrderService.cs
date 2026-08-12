@@ -4,10 +4,6 @@ namespace ECommerce.Application;
 
 public class OrderService : IOrderService
 {
-    // BUG FIX (#1 - phí ship không tính vào tiền thật): trước đây FE hiển thị "+30.000đ"
-    // cho Express nhưng chỉ gửi lên chuỗi ShippingMethod, backend không cộng gì vào
-    // TotalAmount -> khách thấy một số, VNPay/COD thu một số khác (ít hơn). Giờ backend
-    // là nguồn sự thật duy nhất cho phí vận chuyển, không tin bất kỳ số tiền nào từ FE.
     private const decimal StandardShippingFee = 0m;
     private const decimal ExpressShippingFee = 30000m;
 
@@ -39,13 +35,8 @@ public class OrderService : IOrderService
         if (request.PaymentMethod != "COD" && request.PaymentMethod != "VNPay")
             throw new OrderException(400, "Phương thức thanh toán không hợp lệ.");
 
-        // BUG FIX (#4 - ShippingMethod không validate ở backend): trước đây chuỗi này
-        // được lưu thẳng vào DB mà không kiểm tra gì, client có thể gửi giá trị tùy ý.
-        // ResolveShippingFee() vừa validate vừa tính phí trong 1 bước.
         var shippingFee = ResolveShippingFee(request.ShippingMethod);
 
-        // Toàn bộ luồng (kiểm tra & trừ tồn kho -> tạo Order -> xoá giỏ hàng -> tạo Payment)
-        // được bọc trong 1 transaction để đảm bảo tính nguyên tử (atomic) theo đúng thiết kế TH_P401.
         await using var transaction = await _unitOfWork.BeginTransactionAsync();
         try
         {
@@ -57,13 +48,6 @@ public class OrderService : IOrderService
             if (address is null || address.UserId != userId)
                 throw new OrderException(400, "Địa chỉ giao hàng không hợp lệ.");
 
-            // FIX (#1 - Checkout được sản phẩm đã bị Admin ẩn nếu có sẵn trong giỏ):
-            // trước đây chỉ kiểm tra tồn kho, không kiểm tra sản phẩm còn đang kinh doanh
-            // hay không. Nếu một sản phẩm được thêm vào giỏ TRƯỚC KHI Admin chuyển
-            // Status="Inactive", giỏ hàng vẫn giữ item đó và Customer vẫn đặt được hàng
-            // bình thường dù sản phẩm đã bị ẩn khỏi toàn bộ trang khách hàng. Kiểm tra
-            // riêng một lượt trước khi đụng đến tồn kho, để báo lỗi rõ ràng và không trừ
-            // kho các item hợp lệ đứng trước item lỗi trong danh sách.
             foreach (var item in cart.Items)
             {
                 var variantCheck = await _variantRepository.GetByIdAsync(item.VariantId);
@@ -73,13 +57,6 @@ public class OrderService : IOrderService
                     throw new OrderException(400, $"Sản phẩm {item.ProductName} hiện không còn kinh doanh. Vui lòng xóa khỏi giỏ hàng.");
             }
 
-            // RACE-CONDITION FIX (BR-02): trừ kho bằng UPDATE nguyên tử có điều kiện
-            // (StockQuantity >= quantity), thay cho pattern "đọc số lượng -> kiểm tra ở
-            // C# -> ghi lại qua change tracker" vốn KHÔNG atomic. Với pattern không
-            // atomic, 2 Customer đặt hàng cùng lúc cho cùng 1 variant có thể cùng đọc
-            // được số lượng còn đủ hàng rồi cùng được phép trừ kho, dẫn tới bán vượt tồn
-            // kho thực tế (vi phạm BR-02). Nếu bất kỳ item nào không đủ hàng tại thời
-            // điểm trừ, toàn bộ transaction rollback, không cần rollback tay.
             foreach (var item in cart.Items)
             {
                 var decremented = await _variantRepository.TryDecrementStockAsync(item.VariantId, item.Quantity);
@@ -93,8 +70,6 @@ public class OrderService : IOrderService
                 AddressId = request.AddressId,
                 ShippingMethod = request.ShippingMethod,
                 ShippingFee = shippingFee,
-                // BUG FIX: TotalAmount giờ = tiền hàng + phí vận chuyển thật, khớp với số
-                // hiển thị cho khách ở trang checkout và số tiền VNPay/COD thực sự thu.
                 TotalAmount = cart.TotalAmount + shippingFee,
                 Status = "Pending",
                 CancelReason = null,
@@ -120,11 +95,8 @@ public class OrderService : IOrderService
             await _orderRepository.AddAsync(order);
             await _orderRepository.SaveChangesAsync();
 
-            // Xoá giỏ hàng
             await _cartService.ClearCartAsync(userId);
 
-            // Khởi tạo thanh toán ngay khi tạo đơn (COD -> tự xác nhận đơn; VNPay -> sinh paymentUrl)
-            // order.TotalAmount ở đây đã bao gồm shippingFee nên PaymentService/VNPay thu đúng số tiền.
             var payment = await _paymentService.CreatePaymentAsync(
                 userId,
                 new CreatePaymentRequest(order.Id, request.PaymentMethod),
@@ -183,15 +155,13 @@ public class OrderService : IOrderService
         if (order.UserId != userId)
             throw new OrderException(403, "Bạn không có quyền hủy đơn hàng này.");
 
-        if (order.Status != "Pending")
-            throw new OrderException(400, "Chỉ có thể hủy đơn hàng đang chờ xử lý.");
-
+        var cancellableStatuses = new[] { "Pending", "Confirmed" };
+if (!cancellableStatuses.Contains(order.Status))
+    throw new OrderException(400, "Chỉ có thể hủy đơn hàng khi chưa được xử lý / giao hàng.");
         order.Status = "Cancelled";
         order.CancelReason = reason;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // Hoàn kho (BR-10) — dùng UPDATE nguyên tử, đồng bộ với TryDecrementStockAsync
-        // ở CreateOrderAsync thay vì đọc-sửa-ghi qua change tracker.
         foreach (var item in order.OrderItems)
         {
             await _variantRepository.IncrementStockAsync(item.ProductVariantId, item.Quantity);
@@ -204,13 +174,17 @@ public class OrderService : IOrderService
             ChangedBy = userId
         });
 
-        // BUG FIX (#2 - hủy đơn đã thanh toán VNPay thành công, tiền "bốc hơi"): áp dụng
-        // cùng logic đã có ở UpdateOrderStatusAsync (nhánh Admin) cho nhánh Customer tự
-        // hủy. Về lý thuyết Customer chỉ hủy được khi Order đang "Pending" nên bình
-        // thường Payment (nếu VNPay) vẫn ở Pending/Failed, chưa "Success". Nhưng vẫn thêm
-        // guard này để phòng race condition hiếm gặp (VNPay callback xác nhận thanh toán
-        // thành công đúng lúc Customer bấm hủy) — không có gì để hoàn thì không làm gì cả.
-        if (order.Payment is not null && order.Payment.Status == "Success")
+        // VNPay đã thanh toán thành công → gọi Refund API
+        if (order.Payment is not null
+            && order.Payment.Method == "VNPay"
+            && order.Payment.Status == "Success")
+        {
+            await _paymentService.RefundIfPaidAsync(
+                order.Id,
+                createBy: $"user:{userId}",
+                clientIp: "127.0.0.1");
+        }
+        else if (order.Payment is not null && order.Payment.Status == "Success")
         {
             order.Payment.Status = "Refunded";
         }
@@ -253,9 +227,6 @@ public class OrderService : IOrderService
         order.Status = request.Status;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // FIX: dùng đúng userId của Admin đang thực hiện thao tác (lấy từ JWT token ở
-        // OrderController) thay vì hardcode ChangedBy = 0, tránh vi phạm khóa ngoại
-        // fk_statuslog_user (không có User nào có Id = 0).
         order.OrderStatusLogs.Add(new OrderStatusLog
         {
             Status = request.Status,
@@ -263,7 +234,6 @@ public class OrderService : IOrderService
             ChangedBy = adminUserId
         });
 
-        // Hoàn kho nếu Admin hủy đơn — cùng cơ chế atomic với CancelOrderAsync.
         if (request.Status == "Cancelled")
         {
             foreach (var item in order.OrderItems)
@@ -271,13 +241,17 @@ public class OrderService : IOrderService
                 await _variantRepository.IncrementStockAsync(item.ProductVariantId, item.Quantity);
             }
 
-            // BUG FIX (#2 - hủy đơn đã thanh toán VNPay thành công, tiền "bốc hơi"):
-            // trước đây hủy đơn chỉ hoàn kho, không đụng gì tới Payment.Status. Một đơn
-            // "Confirmed" (VNPay) nghĩa là khách ĐÃ trả tiền thành công (Payment.Status =
-            // "Success"). Nếu Admin hủy đơn này, hệ thống phải đánh dấu Payment cần hoàn
-            // tiền, để không "mất dấu" khoản khách đã thanh toán. Chỉ đơn thanh toán COD
-            // hoặc VNPay chưa thành công (Pending/Failed) mới không cần đánh dấu này.
-            if (order.Payment is not null && order.Payment.Status == "Success")
+            // VNPay đã thanh toán thành công → gọi Refund API
+            if (order.Payment is not null
+                && order.Payment.Method == "VNPay"
+                && order.Payment.Status == "Success")
+            {
+                await _paymentService.RefundIfPaidAsync(
+                    order.Id,
+                    createBy: $"admin:{adminUserId}",
+                    clientIp: "127.0.0.1");
+            }
+            else if (order.Payment is not null && order.Payment.Status == "Success")
             {
                 order.Payment.Status = "Refunded";
             }
@@ -287,9 +261,6 @@ public class OrderService : IOrderService
         return MapToResponse(order);
     }
 
-    // BUG FIX (#1/#4): nguồn sự thật DUY NHẤT cho phí vận chuyển. Đồng thời validate
-    // luôn ShippingMethod — giá trị không nằm trong danh sách hợp lệ sẽ bị từ chối ngay,
-    // thay vì được lưu thẳng vào DB làm bẩn dữ liệu báo cáo.
     private static decimal ResolveShippingFee(string shippingMethod) => shippingMethod switch
     {
         "Standard" => StandardShippingFee,

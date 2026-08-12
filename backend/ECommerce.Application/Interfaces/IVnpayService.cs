@@ -9,6 +9,24 @@ public sealed record VnpayCreateRequest(
     string ReturnUrl
 );
 
+public sealed record VnpayRefundRequest(
+    string TxnRef,
+    long AmountVnd,
+    string TransactionNo,
+    string TransactionDate,
+    string CreateBy,
+    string ClientIp,
+    string OrderInfo,
+    bool FullRefund = true
+);
+
+public sealed record VnpayRefundResult(
+    bool Success,
+    string ResponseCode,
+    string Message,
+    string? ResponseId
+);
+
 public interface IVnpayService
 {
     /// <summary>Build the signed VNPay payment URL to redirect the customer to.</summary>
@@ -19,4 +37,7 @@ public interface IVnpayService
 
     /// <summary>HMAC-SHA512 hex using the configured HashSecret.</summary>
     string HmacSha512(string data);
+
+    /// <summary>Gọi API hoàn tiền VNPay (vnp_Command = refund).</summary>
+    Task<VnpayRefundResult> RefundAsync(VnpayRefundRequest request, CancellationToken ct = default);
 }

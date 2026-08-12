@@ -100,7 +100,7 @@
       }
     </div>
 
-    @if (o.status === 'Pending') {
+    @if (o.status === 'Pending' || o.status === 'Confirmed') {
       <div class="detail-actions">
         <button class="btn-danger" [disabled]="cancelling()" (click)="cancelOrder()">
           <span class="material-icons">cancel</span>

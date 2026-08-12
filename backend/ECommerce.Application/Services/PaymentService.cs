@@ -38,8 +38,6 @@ public class PaymentService : IPaymentService
             throw new PaymentException(400, "Đơn hàng không ở trạng thái chờ thanh toán.");
 
         var existingPayment = await _paymentRepository.GetByOrderIdAsync(request.OrderId);
-        // Chỉ chặn khi đơn đã có thanh toán THÀNH CÔNG/ĐANG CHỜ; nếu lần trước Failed thì cho phép thanh toán lại
-        // (Payment.OrderId là UNIQUE nên tái sử dụng lại record cũ thay vì tạo bản ghi mới).
         if (existingPayment is not null && existingPayment.Status != "Failed")
             throw new PaymentException(400, "Đơn hàng đã có thanh toán.");
 
@@ -49,12 +47,12 @@ public class PaymentService : IPaymentService
             payment.Method = "COD";
             payment.Status = "Success";
             payment.TransactionCode = null;
+            payment.TransactionDate = null;
             payment.PaidAt = DateTime.UtcNow;
 
             if (existingPayment is null)
                 await _paymentRepository.AddAsync(payment);
 
-            // COD tự động xác nhận đơn ngay sau khi đặt (BR-05)
             order.Status = "Confirmed";
             order.UpdatedAt = DateTime.UtcNow;
             order.OrderStatusLogs.Add(new OrderStatusLog
@@ -68,11 +66,11 @@ public class PaymentService : IPaymentService
             return MapToResponse(payment, order.TotalAmount, null);
         }
 
-        // VNPay: tạo/khởi tạo lại Payment ở trạng thái Pending, sinh paymentUrl để redirect Customer sang VNPay
         var vnpayPayment = existingPayment ?? new Payment { OrderId = request.OrderId, CreatedAt = DateTime.UtcNow };
         vnpayPayment.Method = "VNPay";
         vnpayPayment.Status = "Pending";
         vnpayPayment.TransactionCode = null;
+        vnpayPayment.TransactionDate = null;
         vnpayPayment.PaidAt = null;
 
         if (existingPayment is null)
@@ -111,7 +109,6 @@ public class PaymentService : IPaymentService
 
         if (!_vnpayService.ValidateSignature(queryParams))
         {
-            // ERR402-02: checksum không hợp lệ -> KHÔNG cập nhật trạng thái Payment/Order, chỉ ghi log cảnh báo.
             Console.WriteLine($"[VNPay] Invalid checksum for OrderId={request.vnp_TxnRef}");
             throw new PaymentException(400, "Chữ ký callback không hợp lệ.");
         }
@@ -131,6 +128,7 @@ public class PaymentService : IPaymentService
         {
             payment.Status = "Success";
             payment.TransactionCode = request.vnp_TransactionNo;
+            payment.TransactionDate = request.vnp_PayDate; // yyyyMMddHHmmss — cần cho Refund API
             payment.PaidAt = DateTime.UtcNow;
 
             order.Status = "Confirmed";
@@ -144,25 +142,19 @@ public class PaymentService : IPaymentService
         }
         else
         {
-            // ERR402-03: vnp_ResponseCode khác '00' -> Payment=Failed, Order giữ Pending để Customer thanh toán lại.
             payment.Status = "Failed";
             payment.TransactionCode = request.vnp_TransactionNo;
         }
 
         await _paymentRepository.SaveChangesAsync();
 
-        // === Gửi email xác nhận cho khách hàng ngay sau khi chuyển khoản VNPay thành công ===
-        // Không bọc trong cùng transaction với thanh toán: nếu gửi mail lỗi (SMTP down, mạng lỗi...)
-        // thì đơn hàng/thanh toán đã xác nhận thành công vẫn được giữ nguyên, chỉ log lại lỗi gửi mail.
         if (isSuccess)
         {
             try
             {
                 var orderWithDetails = await _orderRepository.GetByIdWithDetailsAsync(orderId);
                 if (orderWithDetails is not null)
-                {
                     await _emailSender.SendPaymentSuccessEmailAsync(orderWithDetails);
-                }
             }
             catch (Exception ex)
             {
@@ -186,37 +178,62 @@ public class PaymentService : IPaymentService
         return MapToResponse(payment, order.TotalAmount, null);
     }
 
-    // FIX (Hủy đơn VNPay đã thanh toán không ghi nhận hoàn tiền):
-    // Trước đây OrderService.UpdateOrderStatusAsync / CancelOrderAsync khi chuyển
-    // đơn sang "Cancelled" chỉ hoàn kho (IncrementStockAsync), không hề đụng tới
-    // Payment. Với đơn đã thanh toán VNPay thành công (Payment.Status == "Success"),
-    // sau khi hủy thì Payment vẫn nằm ở "Success" mãi mãi — không có cách nào từ dữ
-    // liệu để biết đơn này cần hoàn tiền hay đã hoàn tiền.
-    //
-    // Method này được gọi ngay sau khi Order chuyển sang Cancelled. Nó chỉ đánh dấu
-    // Payment.Status = "Refunded" để hệ thống (Admin, báo cáo doanh thu, đối soát...)
-    // biết đơn này cần/đã xử lý hoàn tiền. Việc hoàn tiền thực tế qua cổng VNPay vẫn
-    // cần thao tác thủ công qua cổng merchant VNPay (sandbox không hỗ trợ Refund API
-    // tự động dễ tích hợp) hoặc job riêng — method này chỉ đảm bảo trạng thái được
-    // ghi nhận đúng trong hệ thống, không tự gọi cổng thanh toán.
-    public async Task RefundIfPaidAsync(int orderId)
+    /// <summary>
+    /// Gọi VNPay Refund API khi hủy đơn đã thanh toán thành công.
+    /// Sandbox có thể bị hạn chế — nếu fail sẽ throw PaymentException.
+    /// </summary>
+    public async Task RefundIfPaidAsync(int orderId, string createBy = "system", string clientIp = "127.0.0.1")
     {
+        var order = await _orderRepository.GetByIdAsync(orderId)
+            ?? throw new PaymentException(404, "Đơn hàng không tồn tại.");
+
         var payment = await _paymentRepository.GetByOrderIdAsync(orderId);
         if (payment is null)
             return;
 
-        // Chỉ hoàn tiền cho thanh toán VNPay đã Success. COD không cần "hoàn tiền"
-        // qua hệ thống (chưa thu tiền nếu chưa giao hàng); Payment Pending/Failed
-        // không có gì để hoàn.
         if (payment.Method != "VNPay" || payment.Status != "Success")
             return;
 
+        var txnDate = payment.TransactionDate;
+        if (string.IsNullOrWhiteSpace(txnDate) && payment.PaidAt.HasValue)
+            txnDate = payment.PaidAt.Value.AddHours(7).ToString("yyyyMMddHHmmss");
+
+        if (string.IsNullOrWhiteSpace(txnDate))
+            throw new PaymentException(400, "Thiếu TransactionDate (vnp_PayDate) để gọi hoàn tiền VNPay.");
+
+        var result = await _vnpayService.RefundAsync(new VnpayRefundRequest(
+            TxnRef: order.Id.ToString(),
+            AmountVnd: (long)order.TotalAmount,
+            TransactionNo: payment.TransactionCode ?? "0",
+            TransactionDate: txnDate,
+            CreateBy: string.IsNullOrWhiteSpace(createBy) ? "admin" : createBy,
+            ClientIp: string.IsNullOrWhiteSpace(clientIp) ? "127.0.0.1" : clientIp,
+            OrderInfo: $"Hoan tien don hang {order.Id}",
+            FullRefund: true
+        ));
+
+        if (!result.Success)
+        {
+            _logger.LogError(
+                "VNPay refund thất bại Order #{OrderId}: Code={Code}, Message={Message}",
+                orderId, result.ResponseCode, result.Message);
+
+            // Soft-fail cho sandbox (bỏ comment nếu muốn vẫn đánh dấu Refunded khi API fail):
+            // payment.Status = "Refunded";
+            // await _paymentRepository.SaveChangesAsync();
+            // return;
+
+            throw new PaymentException(400,
+                $"Hoàn tiền VNPay thất bại ({result.ResponseCode}): {result.Message}");
+        }
+
         payment.Status = "Refunded";
+        payment.RefundResponseId = result.ResponseId;
         await _paymentRepository.SaveChangesAsync();
 
         _logger.LogInformation(
-            "Order #{OrderId}: đã đánh dấu hoàn tiền (Payment.Status = Refunded) sau khi đơn bị hủy.",
-            orderId);
+            "Order #{OrderId}: hoàn tiền VNPay thành công. ResponseId={ResponseId}",
+            orderId, result.ResponseId);
     }
 
     private static PaymentResponse MapToResponse(Payment payment, decimal amount, string? paymentUrl)

@@ -59,7 +59,7 @@
                   <span class="material-icons">visibility</span>
                   Xem
                 </button>
-                @if (order.status === 'Pending') {
+                @if (order.status === 'Pending' || order.status === 'Confirmed') {
                   <button class="btn-cancel" (click)="cancelOrder(order)">
                     <span class="material-icons">cancel</span>
                     Hủy

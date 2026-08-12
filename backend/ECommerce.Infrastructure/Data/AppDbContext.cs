@@ -341,6 +341,9 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'Pending'")
                 .HasColumnType("enum('Pending','Success','Failed','Refunded')");
             entity.Property(e => e.TransactionCode).HasMaxLength(100);
+             
+             entity.Property(e => e.TransactionDate).HasMaxLength(14);
+             entity.Property(e => e.RefundResponseId).HasMaxLength(50);
 
             entity.HasOne(d => d.Order).WithOne(p => p.Payment)
                 .HasForeignKey<Payment>(d => d.OrderId)

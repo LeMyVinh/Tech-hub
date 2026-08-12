@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ECommerce.Domain;
+﻿namespace ECommerce.Domain;
 
 public partial class Payment
 {
@@ -14,6 +11,12 @@ public partial class Payment
     public string Status { get; set; } = null!;
 
     public string? TransactionCode { get; set; }
+
+    /// <summary>vnp_PayDate từ callback VNPay, format yyyyMMddHHmmss (GMT+7).</summary>
+    public string? TransactionDate { get; set; }
+
+    /// <summary>Mã phản hồi hoàn tiền từ VNPay (vnp_ResponseId).</summary>
+    public string? RefundResponseId { get; set; }
 
     public DateTime? PaidAt { get; set; }
 
