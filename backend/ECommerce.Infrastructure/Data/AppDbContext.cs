@@ -524,11 +524,9 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
             entity.Property(e => e.Email).HasMaxLength(150);
-            // FIX CRITICAL #2: default true (1) để tài khoản cũ không bị khóa sau migration.
-            // Chỉ set false tường minh khi RegisterAsync tạo user mới.
             entity.Property(e => e.EmailVerified)
                 .IsRequired()
-                .HasDefaultValueSql("'1'");
+                .HasDefaultValueSql("'0'");
             entity.Property(e => e.FullName).HasMaxLength(150);
             entity.Property(e => e.IsActive)
                 .IsRequired()
