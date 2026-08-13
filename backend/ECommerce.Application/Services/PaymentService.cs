@@ -38,7 +38,9 @@ public class PaymentService : IPaymentService
             throw new PaymentException(400, "Đơn hàng không ở trạng thái chờ thanh toán.");
 
         var existingPayment = await _paymentRepository.GetByOrderIdAsync(request.OrderId);
-        if (existingPayment is not null && existingPayment.Status != "Failed")
+        // FIX #4: Cho phép retry khi Status == "Pending" hoặc "Failed" (trước đây chỉ Failed).
+        // Khi khách đóng tab VNPay, payment còn Pending -> retry được.
+        if (existingPayment is not null && existingPayment.Status != "Failed" && existingPayment.Status != "Pending")
             throw new PaymentException(400, "Đơn hàng đã có thanh toán.");
 
         if (request.Method == "COD")
@@ -121,6 +123,10 @@ public class PaymentService : IPaymentService
 
         var payment = await _paymentRepository.GetByOrderIdAsync(orderId)
             ?? throw new PaymentException(404, "Thanh toán không tồn tại.");
+
+        // FIX #6: Idempotent – nếu đã Success rồi thì return luôn, tránh gửi email trùng + log trạng thái trùng khi VNPay retry IPN hoặc user reload.
+        if (payment.Status == "Success")
+            return MapToResponse(payment, order.TotalAmount, null);
 
         var isSuccess = request.vnp_ResponseCode == "00";
 
@@ -217,11 +223,6 @@ public class PaymentService : IPaymentService
             _logger.LogError(
                 "VNPay refund thất bại Order #{OrderId}: Code={Code}, Message={Message}",
                 orderId, result.ResponseCode, result.Message);
-
-            // Soft-fail cho sandbox (bỏ comment nếu muốn vẫn đánh dấu Refunded khi API fail):
-            // payment.Status = "Refunded";
-            // await _paymentRepository.SaveChangesAsync();
-            // return;
 
             throw new PaymentException(400,
                 $"Hoàn tiền VNPay thất bại ({result.ResponseCode}): {result.Message}");
