@@ -25,8 +25,3 @@
 # Environment
 .env
 .env.*
-
-# Secrets - NEVER commit real secrets
-**/appsettings.json
-**/appsettings.Development.json
-**/appsettings.*.local.json
