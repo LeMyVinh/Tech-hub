@@ -148,15 +148,22 @@ public sealed class ProductService : IProductService
         var existingVariants = product.ProductVariants.ToList();
         var requestVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
 
-        // FIX (crash 500): variant nào không còn trong request nhưng đã từng phát sinh
-        // đơn hàng (OrderItem) thì KHÔNG được xoá cứng — chỉ "nghỉ bán" bằng cách đưa
-        // tồn kho về 0, để không vi phạm FK OrderItem.ProductVariantId (không nullable).
-        // Chỉ những variant chưa từng có đơn hàng mới thực sự bị xoá.
+        // FIX (crash 500 - FK CartItem): variant nào không còn trong request nhưng đã
+        // từng phát sinh đơn hàng (OrderItem) HOẶC đang nằm trong giỏ hàng của bất kỳ
+        // khách hàng nào (CartItem) thì KHÔNG được xóa cứng — chỉ "nghỉ bán" bằng cách
+        // đưa tồn kho về 0, để không vi phạm FK OrderItem/CartItem.ProductVariantId
+        // (đều not-null). Trước đây chỉ check HasOrdersAsync (bảng OrderItem), bỏ sót
+        // trường hợp variant đang trong giỏ hàng của khách khác nhưng CHƯA từng đặt
+        // hàng — xóa cứng trường hợp này khiến SaveChangesAsync ném DbUpdateException
+        // không được bắt, API trả 500 thô ngay khi Admin bấm "Lưu".
         var candidatesToRemove = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
         var toRemoveVariants = new List<ProductVariant>();
         foreach (var variant in candidatesToRemove)
         {
-            if (await _variantRepository.HasOrdersAsync(variant.Id))
+            var hasOrders = await _variantRepository.HasOrdersAsync(variant.Id);
+            var hasCartItems = await _variantRepository.HasCartItemsAsync(variant.Id);
+
+            if (hasOrders || hasCartItems)
             {
                 variant.StockQuantity = 0;
                 await _variantRepository.UpdateAsync(variant);

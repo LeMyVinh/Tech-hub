@@ -56,6 +56,17 @@ public sealed class CategoryService : ICategoryService
         if (request.ParentId.HasValue && request.ParentId.Value == id)
             throw new CatalogException(400, "Danh mục cha không thể là chính nó.");
 
+        // FIX: chặn vòng lặp nhiều cấp (A -> B -> C -> A). Trước đây chỉ kiểm tra
+        // ParentId trùng chính Id (vòng lặp 1 cấp), không phát hiện được trường hợp
+        // gán một danh mục CON/CHÁU của chính nó làm cha, khiến cây danh mục bị đứt
+        // gãy logic phân cấp (breadcrumb, lọc sản phẩm theo cây category sẽ sai).
+        if (request.ParentId.HasValue &&
+            await IsDescendantOfAsync(request.ParentId.Value, id))
+        {
+            throw new CatalogException(400,
+                "Không thể chọn danh mục con của chính nó làm danh mục cha (sẽ tạo vòng lặp).");
+        }
+
         if (await _categoryRepository.ExistsByNameAsync(trimmedName, request.ParentId, excludeId: id))
             throw new CatalogException(400, "Tên danh mục/thương hiệu đã tồn tại.");
 
@@ -112,6 +123,29 @@ public sealed class CategoryService : ICategoryService
         var category = await _categoryRepository.GetByIdAsync(id);
         if (category == null) return null;
         return MapToResponse(category);
+    }
+
+    // FIX: đi ngược từ candidateParentId lên tới gốc (theo ParentId), nếu gặp lại
+    // ancestorId (= category đang sửa) thì nghĩa là candidateParentId đang nằm trong
+    // nhánh con/cháu của ancestorId -> gán làm cha sẽ tạo vòng lặp. `visited` chỉ để
+    // phòng hờ dữ liệu cũ trong DB đã lỡ bị vòng lặp, tránh loop vô hạn.
+    private async Task<bool> IsDescendantOfAsync(int candidateParentId, int ancestorId)
+    {
+        var allCategories = await _categoryRepository.GetAllAsync(includeInactive: true);
+        var byId = allCategories.ToDictionary(c => c.Id);
+
+        var current = candidateParentId;
+        var visited = new HashSet<int>();
+
+        while (byId.TryGetValue(current, out var node))
+        {
+            if (node.Id == ancestorId) return true;
+            if (!node.ParentId.HasValue) break;
+            if (!visited.Add(node.Id)) break;
+            current = node.ParentId.Value;
+        }
+
+        return false;
     }
 
     private static CategoryResponse MapToResponse(Category c)

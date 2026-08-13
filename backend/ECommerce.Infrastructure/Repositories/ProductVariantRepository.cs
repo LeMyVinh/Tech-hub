@@ -26,10 +26,11 @@ public sealed class ProductVariantRepository : IProductVariantRepository
             .Include(v => v.Product)
             .FirstOrDefaultAsync(v => v.Id == id);
     }
+
     public async Task<ProductVariant?> GetByIdWithProductAsync(int id)
-{
-    return await GetByIdAsync(id);
-}
+    {
+        return await GetByIdAsync(id);
+    }
 
     public async Task<List<ProductVariant>> GetByProductIdAsync(int productId)
     {
@@ -45,7 +46,6 @@ public sealed class ProductVariantRepository : IProductVariantRepository
     {
         await _db.ProductVariants.AddRangeAsync(variants);
     }
-
 
     public Task UpdateAsync(ProductVariant variant)
     {
@@ -78,11 +78,21 @@ public sealed class ProductVariantRepository : IProductVariantRepository
 
         return affected > 0;
     }
+
     public async Task<bool> HasOrdersAsync(int productVariantId)
-{
-    return await _db.OrderItems
-        .AnyAsync(x => x.ProductVariantId == productVariantId);
-}
+    {
+        return await _db.OrderItems
+            .AnyAsync(x => x.ProductVariantId == productVariantId);
+    }
+
+    // FIX: kiểm tra variant có đang tồn tại trong CartItem của bất kỳ khách hàng nào
+    // (dù chưa từng phát sinh đơn hàng). CartItem.ProductVariantId là FK not-null, nên
+    // xóa cứng một variant đang bị tham chiếu sẽ ném DbUpdateException không kiểm soát.
+    public async Task<bool> HasCartItemsAsync(int productVariantId)
+    {
+        return await _db.CartItems
+            .AnyAsync(ci => ci.ProductVariantId == productVariantId);
+    }
 
     public async Task IncrementStockAsync(int variantId, int quantity)
     {

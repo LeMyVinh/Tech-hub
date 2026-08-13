@@ -44,6 +44,12 @@ public class AddressRepository : IAddressRepository
         return Task.CompletedTask;
     }
 
+    // FIX: kiểm tra địa chỉ có đang được tham chiếu bởi bất kỳ Order nào không.
+    public async Task<bool> HasOrdersAsync(int addressId)
+    {
+        return await _context.Orders.AnyAsync(o => o.AddressId == addressId);
+    }
+
     public async Task SaveChangesAsync()
     {
         await _context.SaveChangesAsync();

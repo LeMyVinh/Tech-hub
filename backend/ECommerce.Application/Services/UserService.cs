@@ -134,6 +134,12 @@ public class UserService : IUserService
         if (address.UserId != userId)
             throw new UserException(403, "Bạn không có quyền xóa địa chỉ này.");
 
+        // FIX: chặn xóa địa chỉ đã gắn với đơn hàng, tránh vi phạm FK constraint
+        // (Order.AddressId not-null) hoặc mất dữ liệu lịch sử đơn hàng.
+        if (await _addressRepository.HasOrdersAsync(addressId))
+            throw new UserException(400,
+                "Không thể xóa địa chỉ đã được dùng để đặt hàng. Bạn có thể thêm địa chỉ mới thay thế.");
+
         await _addressRepository.DeleteAsync(address);
         await _addressRepository.SaveChangesAsync();
     }
