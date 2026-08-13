@@ -11,12 +11,6 @@ public sealed class ProductRepository : IProductRepository
     private readonly AppDbContext _db;
     private readonly IMemoryCache _cache;
 
-    // PERF FIX (#4): trước đây mỗi lần lọc sản phẩm theo categoryId đều load TOÀN
-    // BỘ bảng Category (Id, ParentId) từ DB rồi BFS trong bộ nhớ để tìm danh mục con.
-    // Cây danh mục là dữ liệu gần như tĩnh — chỉ đổi khi Admin CRUD category (rất
-    // hiếm so với tần suất search sản phẩm của khách) — nên cache ngắn hạn trong
-    // memory là đủ để loại bỏ việc quét toàn bộ bảng ở mỗi request, mà vẫn tự phục
-    // hồi dữ liệu mới trong vài phút nếu Admin vừa sửa danh mục.
     private const string CategoryTreeCacheKey = "product-repo:category-tree";
     private static readonly TimeSpan CategoryTreeCacheDuration = TimeSpan.FromMinutes(5);
 
@@ -35,15 +29,21 @@ public sealed class ProductRepository : IProductRepository
         }
         return await query.FirstOrDefaultAsync(p => p.Id == id);
     }
+
     public async Task<Product?> GetWithDetailsAsync(int id, bool includeInactive = false)
     {
+        // PERF FIX: trước đây Include(p => p.Reviews).ThenInclude(r => r.User) load
+        // TOÀN BỘ review của sản phẩm (không giới hạn số lượng) mỗi khi khách xem
+        // trang chi tiết, chỉ để tính điểm trung bình và hiển thị vài review mới
+        // nhất. Với sản phẩm bán chạy có hàng nghìn review, việc này kéo tụt hiệu
+        // năng nghiêm trọng. Giờ không include Reviews ở đây nữa — ProductService
+        // lấy điểm trung bình + danh sách review (đã phân trang) qua
+        // IReviewRepository (GetAverageRatingAsync / GetByProductIdAsync).
         var query = _db.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.ProductVariants)
             .Include(p => p.ProductImages)
-            .Include(p => p.Reviews)
-                .ThenInclude(r => r.User)
             .AsQueryable();
 
         if (!includeInactive)
@@ -79,8 +79,6 @@ public sealed class ProductRepository : IProductRepository
 
         if (filter.CategoryId.HasValue)
         {
-            // Lọc theo danh mục sẽ bao gồm cả các danh mục con (vd: bấm "Laptop" thì cũng
-            // ra sản phẩm thuộc "Laptop MacBook", "Laptop Windows" là con của "Laptop")
             var categoryIds = await GetCategoryIdsWithDescendantsAsync(filter.CategoryId.Value);
             query = query.Where(p => categoryIds.Contains(p.CategoryId));
         }
@@ -139,20 +137,6 @@ public sealed class ProductRepository : IProductRepository
         return new PagedResult<ProductSummaryResponse>(items, totalCount, page, pageSize);
     }
 
-    /// <summary>
-    /// Trả về danh sách gồm chính categoryId truyền vào và toàn bộ ID các danh mục con
-    /// (đệ quy nhiều cấp), dùng để lọc sản phẩm theo cả cây danh mục thay vì chỉ 1 ID duy nhất.
-    ///
-    /// PERF FIX (#4): trước đây hàm này load lại TOÀN BỘ bảng Category từ DB ở MỖI
-    /// LẦN GỌI (tức mỗi request search có categoryId). Giờ danh sách phẳng (Id, ParentId)
-    /// được cache trong memory theo <see cref="CategoryTreeCacheDuration"/>, dùng chung
-    /// cho mọi request trong khoảng thời gian đó. Việc duyệt cây (BFS) vẫn dùng
-    /// ToLookup(parentId) để tra cứu con của mỗi node là O(1) trung bình.
-    ///
-    /// Cache tự hết hạn sau vài phút nên nếu Admin vừa thêm/sửa/xóa danh mục, kết quả
-    /// search có thể "trễ" tối đa bằng đúng khoảng thời gian cache — chấp nhận được vì
-    /// đây là thao tác quản trị hiếm, không phải dữ liệu cần realtime tuyệt đối.
-    /// </summary>
     private async Task<List<int>> GetCategoryIdsWithDescendantsAsync(int categoryId)
     {
         var childrenLookup = await GetCategoryChildrenLookupAsync();

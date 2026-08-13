@@ -1,9 +1,15 @@
+using System.Text.RegularExpressions;
 using ECommerce.Domain;
 
 namespace ECommerce.Application;
 
 public class UserService : IUserService
 {
+    // FIX: đồng bộ với rule validate phone ở AuthService/Register (10 số, bắt đầu bằng 0).
+    // Trước đây UpdateUserProfileAsync nhận bất kỳ chuỗi nào cho Phone, không kiểm tra
+    // định dạng, khiến dữ liệu Phone trong DB không nhất quán so với lúc đăng ký.
+    private static readonly Regex PhoneRegex = new(@"^0[0-9]{9}$", RegexOptions.Compiled);
+
     private readonly IUserRepository _userRepository;
     private readonly IAddressRepository _addressRepository;
 
@@ -38,7 +44,16 @@ public class UserService : IUserService
             user.FullName = request.FullName.Trim();
 
         if (request.Phone is not null)
-            user.Phone = request.Phone.Trim();
+        {
+            var trimmedPhone = request.Phone.Trim();
+
+            // Cho phép xóa trắng số điện thoại (coi như "chưa cập nhật"), nhưng nếu có
+            // nhập giá trị thì phải đúng định dạng.
+            if (trimmedPhone.Length > 0 && !PhoneRegex.IsMatch(trimmedPhone))
+                throw new UserException(400, "Số điện thoại không hợp lệ (phải gồm 10 số, bắt đầu bằng 0).");
+
+            user.Phone = trimmedPhone.Length == 0 ? null : trimmedPhone;
+        }
 
         user.UpdatedAt = DateTime.UtcNow;
         await _userRepository.SaveChangesAsync();
@@ -134,8 +149,6 @@ public class UserService : IUserService
         if (address.UserId != userId)
             throw new UserException(403, "Bạn không có quyền xóa địa chỉ này.");
 
-        // FIX: chặn xóa địa chỉ đã gắn với đơn hàng, tránh vi phạm FK constraint
-        // (Order.AddressId not-null) hoặc mất dữ liệu lịch sử đơn hàng.
         if (await _addressRepository.HasOrdersAsync(addressId))
             throw new UserException(400,
                 "Không thể xóa địa chỉ đã được dùng để đặt hàng. Bạn có thể thêm địa chỉ mới thay thế.");
@@ -152,7 +165,6 @@ public class UserService : IUserService
         if (address.UserId != userId)
             throw new UserException(403, "Bạn không có quyền cập nhật địa chỉ này.");
 
-        // Unset other defaults
         var existingAddresses = await _addressRepository.GetByUserIdAsync(userId);
         foreach (var existing in existingAddresses.Where(a => a.IsDefault))
         {
@@ -191,8 +203,18 @@ public class UserService : IUserService
         var user = await _userRepository.GetByIdAsync(targetUserId)
             ?? throw new UserException(404, "Người dùng không tồn tại.");
 
+        // FIX: trước đây MỌI tài khoản Admin đều không thể bị khóa (kể cả khi có
+        // nhiều Admin và một trong số đó đã nghỉ việc / bị lộ tài khoản), đồng thời
+        // KHÔNG có gì đảm bảo hệ thống luôn còn ít nhất 1 Admin hoạt động nếu sau
+        // này quy tắc này được nới lỏng tùy tiện. Giờ: chỉ chặn khi đây là Admin
+        // đang hoạt động CUỐI CÙNG trong hệ thống; nếu còn Admin khác đang hoạt
+        // động, việc khóa được cho phép.
         if (user.Role.Name == "Admin")
-            throw new UserException(400, "Không thể khóa tài khoản Admin.");
+        {
+            var activeAdminCount = await _userRepository.GetActiveAdminCountAsync();
+            if (activeAdminCount <= 1)
+                throw new UserException(400, "Không thể khóa tài khoản Admin cuối cùng đang hoạt động trong hệ thống.");
+        }
 
         user.IsActive = false;
         user.UpdatedAt = DateTime.UtcNow;

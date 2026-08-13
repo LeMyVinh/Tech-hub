@@ -8,6 +8,8 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(int id);
     Task<List<User>> GetAllAsync(int page, int pageSize);
     Task<int> GetCountAsync();
+    Task<int> GetActiveAdminCountAsync();
+
     Task AddAsync(User user);
     Task SaveChangesAsync();
 }

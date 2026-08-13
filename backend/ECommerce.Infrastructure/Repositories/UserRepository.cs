@@ -26,6 +26,11 @@ public class UserRepository : IUserRepository
     public async Task<int> GetCountAsync() =>
         await _db.Users.CountAsync();
 
+    // FIX: đếm số Admin đang hoạt động (IsActive = true), dùng để chặn khóa nốt
+    // Admin cuối cùng của hệ thống.
+    public async Task<int> GetActiveAdminCountAsync() =>
+        await _db.Users.CountAsync(u => u.Role.Name == "Admin" && u.IsActive == true);
+
     public async Task AddAsync(User user) => await _db.Users.AddAsync(user);
 
     public Task SaveChangesAsync() => _db.SaveChangesAsync();

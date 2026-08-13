@@ -49,7 +49,7 @@
             }
           </span>
           <span class="avg">{{ p.avgRating.toFixed(1) }}</span>
-          <span class="review-count">({{ p.reviews.length }} đánh giá)</span>
+          <span class="review-count">({{ p.reviewCount }} đánh giá)</span>
         </div>
 
         <div class="variant-section">
@@ -107,7 +107,7 @@
     <div class="product-tabs">
       <div class="tab-header">
         <button [class.active]="activeTab() === 'description'" (click)="activeTab.set('description')">Mô tả sản phẩm</button>
-        <button [class.active]="activeTab() === 'reviews'" (click)="activeTab.set('reviews')">Đánh giá ({{ p.reviews.length }})</button>
+        <button [class.active]="activeTab() === 'reviews'" (click)="activeTab.set('reviews')">Đánh giá ({{ p.reviewCount }})</button>
       </div>
 
       <div class="tab-content">

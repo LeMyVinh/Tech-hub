@@ -115,6 +115,10 @@ public sealed record ProductDetailResponse(
     List<ProductVariantResponse> Variants,
     List<ProductImageResponse> Images,
     double AvgRating,
+    // FIX: tổng số đánh giá đã duyệt (không giới hạn theo trang), tách riêng khỏi
+    // Reviews (chỉ chứa một trang review mới nhất) để FE hiển thị đúng số lượng
+    // thật thay vì đếm nhầm theo độ dài mảng đã bị giới hạn.
+    int ReviewCount,
     List<ApprovedReviewSummaryResponse> Reviews
 );
 

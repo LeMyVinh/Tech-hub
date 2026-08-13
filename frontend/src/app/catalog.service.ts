@@ -62,6 +62,7 @@ export interface ProductDetail {
   variants: ProductVariant[];
   images: ProductImage[];
   avgRating: number;
+  reviewCount: number;
   reviews: ApprovedReview[];
 }
 
@@ -225,9 +226,6 @@ export class CatalogService {
     if (paramsObj.keyword) params = params.set('keyword', paramsObj.keyword);
     if (paramsObj.categoryId) params = params.set('categoryId', paramsObj.categoryId);
     if (paramsObj.brandId) params = params.set('brandId', paramsObj.brandId);
-    // FIX BUG-CAT-04 (QA Report - Catalog & Search): dùng `!= null` thay vì kiểm tra
-    // truthy, vì minPrice/maxPrice = 0 là giá trị hợp lệ nhưng bị coi là falsy trong
-    // JavaScript và trước đây bị loại khỏi request một cách âm thầm.
     if (paramsObj.minPrice != null) params = params.set('minPrice', paramsObj.minPrice);
     if (paramsObj.maxPrice != null) params = params.set('maxPrice', paramsObj.maxPrice);
     if (paramsObj.sort) params = params.set('sort', paramsObj.sort);

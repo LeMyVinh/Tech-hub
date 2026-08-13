@@ -61,13 +61,20 @@ public class ReviewRepository : IReviewRepository
         return await _context.Reviews.CountAsync(r => r.Status == "Pending");
     }
 
+    // PERF FIX: trước đây hàm này tải TOÀN BỘ các dòng Review (Approved) của sản
+    // phẩm vào bộ nhớ ứng dụng (ToListAsync) chỉ để tính trung bình một cột Rating
+    // bằng LINQ-to-Objects. Với sản phẩm có nhiều review, đây là lượng dữ liệu
+    // không cần thiết phải kéo qua network + serialize. Giờ dùng AverageAsync để
+    // SQL Server/MySQL tính AVG() trực tiếp, chỉ trả về một giá trị số duy nhất.
     public async Task<double> GetAverageRatingAsync(int productId)
     {
-        var reviews = await _context.Reviews
-            .Where(r => r.ProductId == productId && r.Status == "Approved")
-            .ToListAsync();
+        var query = _context.Reviews
+            .Where(r => r.ProductId == productId && r.Status == "Approved");
 
-        return reviews.Any() ? reviews.Average(r => r.Rating) : 0;
+        var hasAny = await query.AnyAsync();
+        if (!hasAny) return 0;
+
+        return await query.AverageAsync(r => (double)r.Rating);
     }
 
     public async Task AddAsync(Review review)

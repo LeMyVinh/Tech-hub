@@ -4,24 +4,38 @@ namespace ECommerce.Application;
 
 public sealed class ProductService : IProductService
 {
+    private const int DetailReviewPageSize = 20;
+
+    // FIX: whitelist các giá trị Status hợp lệ. Trước đây request.Status được gán
+    // thẳng vào Product.Status mà không kiểm tra, trong khi rất nhiều nơi khác
+    // (ProductRepository.SearchAsync, CartService, WishlistService, OrderService...)
+    // đều so sánh cứng == "Active". Một giá trị Status sai chính tả (vd "active",
+    // "Actve") sẽ khiến sản phẩm âm thầm biến mất khỏi tìm kiếm / không mua được,
+    // rất khó phát hiện vì API vẫn trả 200 OK.
+    private static readonly HashSet<string> ValidProductStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "Active", "Inactive" };
+
     private readonly IProductRepository _productRepository;
     private readonly ICategoryRepository _categoryRepository;
     private readonly IBrandRepository _brandRepository;
     private readonly IProductVariantRepository _variantRepository;
     private readonly IProductImageRepository _imageRepository;
+    private readonly IReviewRepository _reviewRepository;
 
     public ProductService(
         IProductRepository productRepository,
         ICategoryRepository categoryRepository,
         IBrandRepository brandRepository,
         IProductVariantRepository variantRepository,
-        IProductImageRepository imageRepository)
+        IProductImageRepository imageRepository,
+        IReviewRepository reviewRepository)
     {
         _productRepository = productRepository;
         _categoryRepository = categoryRepository;
         _brandRepository = brandRepository;
         _variantRepository = variantRepository;
         _imageRepository = imageRepository;
+        _reviewRepository = reviewRepository;
     }
 
     public async Task<ProductResponse> CreateAsync(CreateProductRequest request)
@@ -56,13 +70,17 @@ public sealed class ProductService : IProductService
                 throw new CatalogException(400, "Mã SKU đã tồn tại trong hệ thống.");
         }
 
+        var status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+        if (!ValidProductStatuses.Contains(status))
+            throw new CatalogException(400, "Trạng thái sản phẩm không hợp lệ. Chỉ chấp nhận 'Active' hoặc 'Inactive'.");
+
         var product = new Product
         {
             Name = request.Name.Trim(),
             Description = request.Description,
             CategoryId = request.CategoryId,
             BrandId = request.BrandId,
-            Status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim(),
+            Status = status,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -139,23 +157,18 @@ public sealed class ProductService : IProductService
         product.Description = request.Description;
         product.CategoryId = request.CategoryId;
         product.BrandId = request.BrandId;
+
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
-            product.Status = request.Status.Trim();
+            var status = request.Status.Trim();
+            if (!ValidProductStatuses.Contains(status))
+                throw new CatalogException(400, "Trạng thái sản phẩm không hợp lệ. Chỉ chấp nhận 'Active' hoặc 'Inactive'.");
+            product.Status = status;
         }
 
-        // Sync Variants
         var existingVariants = product.ProductVariants.ToList();
         var requestVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
 
-        // FIX (crash 500 - FK CartItem): variant nào không còn trong request nhưng đã
-        // từng phát sinh đơn hàng (OrderItem) HOẶC đang nằm trong giỏ hàng của bất kỳ
-        // khách hàng nào (CartItem) thì KHÔNG được xóa cứng — chỉ "nghỉ bán" bằng cách
-        // đưa tồn kho về 0, để không vi phạm FK OrderItem/CartItem.ProductVariantId
-        // (đều not-null). Trước đây chỉ check HasOrdersAsync (bảng OrderItem), bỏ sót
-        // trường hợp variant đang trong giỏ hàng của khách khác nhưng CHƯA từng đặt
-        // hàng — xóa cứng trường hợp này khiến SaveChangesAsync ném DbUpdateException
-        // không được bắt, API trả 500 thô ngay khi Admin bấm "Lưu".
         var candidatesToRemove = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
         var toRemoveVariants = new List<ProductVariant>();
         foreach (var variant in candidatesToRemove)
@@ -179,7 +192,6 @@ public sealed class ProductService : IProductService
             await _variantRepository.DeleteRangeAsync(toRemoveVariants);
         }
 
-        // Add or Update variants
         foreach (var vDto in request.Variants)
         {
             if (vDto.Id.HasValue)
@@ -209,7 +221,6 @@ public sealed class ProductService : IProductService
             }
         }
 
-        // Sync Images
         var existingImages = product.ProductImages.ToList();
         var requestImageIds = (request.Images ?? new List<UpdateProductImageDto>())
             .Where(img => img.Id.HasValue).Select(img => img.Id!.Value).ToHashSet();
@@ -290,8 +301,16 @@ public sealed class ProductService : IProductService
         if (!includeInactive && product.Status != "Active")
             throw new CatalogException(400, "Sản phẩm hiện không còn kinh doanh.");
 
-        var approvedReviews = product.Reviews
-            .Where(r => r.Status == "Approved")
+        var avgRating = await _reviewRepository.GetAverageRatingAsync(id);
+
+        // FIX: tách riêng tổng số đánh giá thật (dùng cho hiển thị "(N đánh giá)")
+        // khỏi danh sách một trang review mới nhất hiển thị trong tab — trước đây
+        // FE dùng reviews.length để đếm, nên khi giới hạn danh sách còn tối đa
+        // DetailReviewPageSize phần tử, số đếm hiển thị bị sai (thấp hơn thực tế).
+        var totalReviewCount = await _reviewRepository.GetByProductIdCountAsync(id);
+        var latestReviews = await _reviewRepository.GetByProductIdAsync(id, page: 1, pageSize: DetailReviewPageSize);
+
+        var approvedReviews = latestReviews
             .Select(r => new ApprovedReviewSummaryResponse(
                 r.Id,
                 r.User.FullName,
@@ -300,10 +319,6 @@ public sealed class ProductService : IProductService
                 r.CreatedAt
             ))
             .ToList();
-
-        var avgRating = approvedReviews.Count > 0
-            ? Math.Round(approvedReviews.Average(r => (double)r.Rating), 1)
-            : 0.0;
 
         return new ProductDetailResponse(
             product.Id,
@@ -316,7 +331,8 @@ public sealed class ProductService : IProductService
             product.Status,
             product.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
             product.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
-            avgRating,
+            Math.Round(avgRating, 1),
+            totalReviewCount,
             approvedReviews
         );
     }

@@ -4,6 +4,10 @@ namespace ECommerce.Application;
 
 public class ReviewService : IReviewService
 {
+    // FIX: chặn spam dữ liệu — trước đây CreateReviewRequest.ImageUrls không giới
+    // hạn số lượng, cho phép 1 review tạo ra hàng trăm dòng ReviewImage.
+    private const int MaxReviewImages = 5;
+
     private readonly IReviewRepository _reviewRepository;
     private readonly IOrderRepository _orderRepository;
 
@@ -18,33 +22,26 @@ public class ReviewService : IReviewService
         if (request.Rating < 1 || request.Rating > 5)
             throw new ReviewException(400, "Đánh giá phải từ 1 đến 5 sao.");
 
-        // Check if already reviewed
+        if (request.ImageUrls != null && request.ImageUrls.Count > MaxReviewImages)
+            throw new ReviewException(400, $"Chỉ được tải lên tối đa {MaxReviewImages} hình ảnh cho mỗi đánh giá.");
+
         var existingReview = await _reviewRepository.GetByOrderItemIdAsync(request.OrderItemId);
         if (existingReview is not null)
             throw new ReviewException(400, "Bạn đã đánh giá sản phẩm này rồi.");
 
-        // SECURITY FIX (IDOR): lấy đúng OrderItem kèm Order + ProductVariant, thay vì gọi
-        // nhầm hàm tra cứu theo Order.Id như trước đây (khiến bất kỳ Customer nào cũng có
-        // thể gửi review cho đơn của người khác chỉ bằng cách đoán orderItemId).
         var orderItem = await _orderRepository.GetOrderItemWithDetailsAsync(request.OrderItemId);
         if (orderItem is null)
             throw new ReviewException(404, "Đơn hàng không tồn tại.");
 
-        // Đơn hàng phải thuộc về chính người dùng đang đăng nhập.
         if (orderItem.Order.UserId != userId)
             throw new ReviewException(403, "Bạn không có quyền đánh giá đơn hàng này.");
 
-        // Chỉ được đánh giá khi đơn đã giao thành công (đồng bộ với điều kiện hiển thị nút
-        // "Đánh giá" ở frontend, order-detail.component.ts -> canReview()).
         if (orderItem.Order.Status != "Delivered")
             throw new ReviewException(400, "Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã được giao.");
 
-        // ProductId client gửi lên phải khớp với sản phẩm thực tế trong OrderItem, tránh
-        // trường hợp gắn review vào sai sản phẩm.
         if (orderItem.ProductVariant.ProductId != request.ProductId)
             throw new ReviewException(400, "Sản phẩm không khớp với đơn hàng.");
 
-        // Create review
         var review = new Review
         {
             OrderItemId = request.OrderItemId,
