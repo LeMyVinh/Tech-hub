@@ -23,4 +23,5 @@ public partial class Payment
     public DateTime CreatedAt { get; set; }
 
     public virtual Order Order { get; set; } = null!;
+    public string? GatewayPaymentIntentId { get; set; }
 }

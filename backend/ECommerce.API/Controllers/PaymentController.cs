@@ -68,6 +68,35 @@ public sealed class PaymentController : ControllerBase
             return StatusCode(ex.StatusCode, new { message = ex.Message });
         }
     }
+    [HttpPost("credit-card")]
+[Authorize(Roles = "Customer")]
+public async Task<IActionResult> CreateCreditCardPayment([FromBody] CreateCreditCardPaymentRequest request)
+{
+    try
+    {
+        var result = await _paymentService.CreateCreditCardPaymentAsync(GetUserId(), request);
+        return Ok(result);
+    }
+    catch (PaymentException ex) { return StatusCode(ex.StatusCode, new { message = ex.Message }); }
+}
+
+// case #12, #13: raw body + AllowAnonymous — KHÔNG dùng [FromBody] model binding,
+// vì Stripe verify chữ ký trên đúng chuỗi byte gốc.
+[HttpPost("stripe/webhook")]
+[AllowAnonymous]
+public async Task<IActionResult> StripeWebhook()
+{
+    using var reader = new StreamReader(Request.Body);
+    var json = await reader.ReadToEndAsync();
+    var signature = Request.Headers["Stripe-Signature"].ToString();
+
+    try
+    {
+        await _paymentService.HandleStripeWebhookAsync(json, signature);
+        return Ok();
+    }
+    catch (PaymentException ex) { return StatusCode(ex.StatusCode, new { message = ex.Message }); }
+}
 
     private int GetUserId() => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 }

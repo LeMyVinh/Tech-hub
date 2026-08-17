@@ -32,7 +32,8 @@ public class OrderService : IOrderService
 
     public async Task<OrderResponse> CreateOrderAsync(int userId, CreateOrderRequest request, string clientIp, string returnUrl)
     {
-        if (request.PaymentMethod != "COD" && request.PaymentMethod != "VNPay")
+        // 2.13: cho phép thêm "CreditCard" (Stripe) đi qua validate cùng COD/VNPay.
+        if (request.PaymentMethod is not ("COD" or "VNPay" or "CreditCard"))
             throw new OrderException(400, "Phương thức thanh toán không hợp lệ.");
 
         var shippingFee = ResolveShippingFee(request.ShippingMethod);
@@ -97,15 +98,26 @@ public class OrderService : IOrderService
 
             await _cartService.ClearCartAsync(userId);
 
-            var payment = await _paymentService.CreatePaymentAsync(
-                userId,
-                new CreatePaymentRequest(order.Id, request.PaymentMethod),
-                clientIp,
-                returnUrl);
+            // 2.13: CreditCard (Stripe) không tạo Payment/redirect ngay ở bước này —
+            // FE cần hiển thị form nhập thẻ (Stripe Elements) trước, sau đó tự gọi
+            // một endpoint riêng (vd POST /payments/credit-card) để tạo PaymentIntent
+            // và xác nhận thanh toán. COD/VNPay giữ nguyên hành vi cũ (redirect ngay).
+            if (request.PaymentMethod != "CreditCard")
+            {
+                var payment = await _paymentService.CreatePaymentAsync(
+                    userId,
+                    new CreatePaymentRequest(order.Id, request.PaymentMethod),
+                    clientIp,
+                    returnUrl);
+
+                await transaction.CommitAsync();
+
+                return MapToResponse(order) with { PaymentUrl = payment.PaymentUrl };
+            }
 
             await transaction.CommitAsync();
 
-            return MapToResponse(order) with { PaymentUrl = payment.PaymentUrl };
+            return MapToResponse(order);
         }
         catch (OrderException)
         {
@@ -156,8 +168,8 @@ public class OrderService : IOrderService
             throw new OrderException(403, "Bạn không có quyền hủy đơn hàng này.");
 
         var cancellableStatuses = new[] { "Pending", "Confirmed" };
-if (!cancellableStatuses.Contains(order.Status))
-    throw new OrderException(400, "Chỉ có thể hủy đơn hàng khi chưa được xử lý / giao hàng.");
+        if (!cancellableStatuses.Contains(order.Status))
+            throw new OrderException(400, "Chỉ có thể hủy đơn hàng khi chưa được xử lý / giao hàng.");
         order.Status = "Cancelled";
         order.CancelReason = reason;
         order.UpdatedAt = DateTime.UtcNow;
