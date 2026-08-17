@@ -26,24 +26,27 @@ export const routes: Routes = [
     loadComponent: () => import('./features/account/account.component').then(m => m.AccountComponent),
   },
   {
-    // FIX: trước đây không có authGuard, chỉ dựa vào component tự kiểm tra rồi
-    // redirect trong ngOnInit -> có khoảnh khắc route/component load trước khi
-    // redirect (flash nội dung), không đồng nhất với /account, /orders.
     path: 'cart',
     canActivate: [authGuard],
     loadComponent: () => import('./features/cart/cart.component').then(m => m.CartComponent),
   },
   {
-    // FIX: tương tự cart.
     path: 'wishlist',
     canActivate: [authGuard],
     loadComponent: () => import('./features/wishlist/wishlist.component').then(m => m.WishlistComponent),
   },
   {
-    // FIX: tương tự cart — checkout càng cần bảo vệ vì có thao tác tạo đơn hàng/thanh toán.
     path: 'checkout',
     canActivate: [authGuard],
     loadComponent: () => import('./features/checkout/checkout.component').then(m => m.CheckoutComponent),
+  },
+  {
+    // MỚI: trang nhập thẻ Stripe cho phương thức CreditCard
+    path: 'checkout/pay/:orderId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/checkout/credit-card-payment/credit-card-payment.component')
+        .then(m => m.CreditCardPaymentComponent),
   },
   {
     path: 'payment-result',

@@ -13,6 +13,7 @@ public sealed class StripeService : IStripeService
         _settings = options.Value;
         StripeConfiguration.ApiKey = _settings.SecretKey;
     }
+    public string PublishableKey => _settings.PublishableKey;
 
     public async Task<StripePaymentIntentResult> CreatePaymentIntentAsync(StripeCreatePaymentIntentRequest request)
     {

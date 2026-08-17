@@ -10,7 +10,6 @@ public class PaymentService : IPaymentService
     private readonly IOrderRepository _orderRepository;
     private readonly IVnpayService _vnpayService;
     private readonly IStripeService _stripeService;
-    private readonly StripeSettings _stripeSettings;
     private readonly IOrderConfirmationEmailSender _emailSender;
     private readonly ILogger<PaymentService> _logger;
 
@@ -19,7 +18,6 @@ public class PaymentService : IPaymentService
         IOrderRepository orderRepository,
         IVnpayService vnpayService,
         IStripeService stripeService,
-        IOptions<StripeSettings> stripeOptions,
         IOrderConfirmationEmailSender emailSender,
         ILogger<PaymentService> logger)
     {
@@ -27,7 +25,6 @@ public class PaymentService : IPaymentService
         _orderRepository = orderRepository;
         _vnpayService = vnpayService;
         _stripeService = stripeService;
-        _stripeSettings = stripeOptions.Value;
         _emailSender = emailSender;
         _logger = logger;
     }
@@ -225,7 +222,7 @@ public class PaymentService : IPaymentService
                 current.Status is "requires_payment_method" or "requires_confirmation" or "requires_action")
             {
                 return new CreditCardPaymentResponse(
-                    existingPayment.Id, current.PaymentIntentId, current.ClientSecret, _stripeSettings.PublishableKey);
+                    existingPayment.Id, current.PaymentIntentId, current.ClientSecret, _stripeService.PublishableKey);
             }
         }
 
@@ -259,7 +256,7 @@ public class PaymentService : IPaymentService
         await _paymentRepository.SaveChangesAsync();
 
         return new CreditCardPaymentResponse(
-            payment.Id, intentResult.PaymentIntentId, intentResult.ClientSecret, _stripeSettings.PublishableKey);
+            payment.Id, intentResult.PaymentIntentId, intentResult.ClientSecret,_stripeService.PublishableKey);
     }
 
     public async Task HandleStripeWebhookAsync(string rawJson, string signatureHeader)

@@ -108,6 +108,14 @@
                 <p>Chuyển hướng đến cổng thanh toán VNPay để hoàn tất giao dịch.</p>
               </div>
             </label>
+            <label class="payment-option" [class.selected]="paymentMethod === 'CreditCard'">
+              <input type="radio" value="CreditCard" [(ngModel)]="paymentMethod">
+              <span class="material-icons">credit_score</span>
+              <div class="payment-info">
+                <strong>Thẻ tín dụng / ghi nợ quốc tế</strong>
+                <p>Visa, Mastercard, JCB — thanh toán an toàn qua Stripe.</p>
+              </div>
+            </label>
           </div>
         </section>
 
@@ -157,6 +165,9 @@
           } @else if (paymentMethod === 'VNPay') {
             <span class="material-icons">open_in_new</span>
             Tiếp tục tới VNPay
+          } @else if (paymentMethod === 'CreditCard') {
+            <span class="material-icons">credit_score</span>
+            Tiếp tục nhập thông tin thẻ
           } @else {
             <span class="material-icons">check_circle</span>
             Đặt hàng

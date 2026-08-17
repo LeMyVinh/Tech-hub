@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ECommerce.Infrastructure.PaymentGateway;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +65,8 @@ builder.Services.AddScoped<IEmailVerificationEmailSender, EmailVerificationEmail
 
 builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("Vnpay"));
 builder.Services.AddScoped<IVnpayService, VnpayService>();
-
+builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+builder.Services.AddScoped<IStripeService, StripeService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

@@ -19,6 +19,13 @@
         <p>Đơn hàng của bạn đã được xác nhận. Cảm ơn bạn đã mua sắm tại TechHub.</p>
         <a routerLink="/orders" class="btn-primary">Xem đơn hàng của tôi</a>
       </div>
+    } @else if (p.status === 'Pending') {
+      <div class="result-card">
+        <span class="material-icons result-icon">hourglass_empty</span>
+        <h2>Thanh toán đang được xử lý</h2>
+        <p>Chúng tôi đang xác nhận giao dịch của bạn. Việc này có thể mất vài phút, bạn có thể kiểm tra lại trong trang đơn hàng.</p>
+        <a routerLink="/orders" class="btn-primary">Xem đơn hàng của tôi</a>
+      </div>
     } @else {
       <div class="result-card failed">
         <span class="material-icons result-icon">cancel</span>

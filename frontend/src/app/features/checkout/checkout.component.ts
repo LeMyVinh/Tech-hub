@@ -137,11 +137,21 @@ export class CheckoutComponent implements OnInit {
 
     this.checkoutService.createOrder(token, request).subscribe({
       next: (order) => {
-        if (order.paymentUrl) {
-          // VNPay: chuyển hướng toàn trang sang cổng thanh toán
+        // VNPay: chuyển hướng toàn trang sang cổng thanh toán
+        if (this.paymentMethod === 'VNPay' && order.paymentUrl) {
           window.location.href = order.paymentUrl;
           return;
         }
+
+        // Credit Card: điều hướng sang trang nhập thẻ (Stripe Elements),
+        // KHÁC với VNPay vì cần hiển thị form nhập thẻ ngay trong app,
+        // không redirect thẳng ra gateway ngoài.
+        if (this.paymentMethod === 'CreditCard') {
+          this.loading.set(false);
+          this.router.navigate(['/checkout/pay', order.id]);
+          return;
+        }
+
         // COD: đơn đã được tự động xác nhận
         this.toast.success('Đặt hàng thành công! Đơn hàng của bạn đang được xử lý.');
         this.router.navigate(['/orders']);

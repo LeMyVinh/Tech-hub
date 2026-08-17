@@ -30,6 +30,7 @@ public sealed record StripeWebhookEvent(
 public interface IStripeService
 {
     /// <summary>Tạo PaymentIntent mới cho một đơn hàng.</summary>
+    string PublishableKey { get; }
     Task<StripePaymentIntentResult> CreatePaymentIntentAsync(StripeCreatePaymentIntentRequest request);
 
     /// <summary>Lấy lại trạng thái PaymentIntent hiện có (dùng khi user F5/double-click).</summary>

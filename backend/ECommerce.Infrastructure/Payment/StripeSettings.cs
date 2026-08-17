@@ -1,5 +1,5 @@
 namespace ECommerce.Infrastructure.PaymentGateway;
-
+using ECommerce.Infrastructure.PaymentGateway;
 public sealed class StripeSettings
 {
     public string SecretKey { get; set; } = string.Empty;
