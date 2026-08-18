@@ -6,14 +6,20 @@
     </div>
   }
 
-  <div id="payment-element" [class.hidden]="loading()"></div>
+  <div id="payment-element"></div>
 
   @if (error()) {
     <div class="feedback error">{{ error() }}</div>
   }
 
-  <button class="btn-submit" [disabled]="submitting() || loading()" (click)="pay()">
-    <span class="material-icons">{{ submitting() ? 'hourglass_empty' : 'credit_card' }}</span>
+  @if (!loading() && !ready() && !error()) {
+    <p class="hint">Đang tải form thẻ...</p>
+  }
+
+  <button
+    class="btn-submit"
+    [disabled]="submitting() || loading() || !ready()"
+    (click)="pay()">
     {{ submitting() ? 'Đang xử lý...' : 'Xác nhận thanh toán' }}
   </button>
 </div>
