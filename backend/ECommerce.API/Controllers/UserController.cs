@@ -17,8 +17,15 @@ public sealed class UserController : ControllerBase
         _userService = userService;
     }
 
+    // FIX (Admin không truy cập được "Tài khoản của tôi"): các endpoint dưới đây
+    // trước đó bị giới hạn [Authorize(Roles = "Customer")], trong khi trang
+    // /account trên frontend chỉ dùng authGuard chung (cho phép mọi user đã đăng
+    // nhập, kể cả Admin). Kết quả là Admin vào được UI nhưng mọi request API đều
+    // trả 403, khiến trang trắng/báo lỗi. Nới quyền cho cả "Customer,Admin" để
+    // Admin cũng quản lý được thông tin cá nhân + địa chỉ của chính họ.
+
     [HttpGet("users/me")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> GetProfile()
     {
         try
@@ -34,7 +41,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPut("users/me")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateUserProfileRequest request)
     {
         try
@@ -50,7 +57,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpGet("users/me/addresses")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> GetAddresses()
     {
         try
@@ -66,7 +73,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPost("users/me/addresses")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> AddAddress([FromBody] AddAddressRequest request)
     {
         try
@@ -82,7 +89,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPut("users/me/addresses/{id:int}")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> UpdateAddress(int id, [FromBody] UpdateAddressRequest request)
     {
         try
@@ -98,7 +105,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpDelete("users/me/addresses/{id:int}")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> DeleteAddress(int id)
     {
         try
@@ -114,7 +121,7 @@ public sealed class UserController : ControllerBase
     }
 
     [HttpPut("users/me/addresses/{id:int}/default")]
-    [Authorize(Roles = "Customer")]
+    [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> SetDefaultAddress(int id)
     {
         try

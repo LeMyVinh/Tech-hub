@@ -10,6 +10,17 @@ public partial class Order
     public int UserId { get; set; }
 
     public int AddressId { get; set; }
+    public string RecipientName { get; set; } = null!;
+
+    public string Phone { get; set; } = null!;
+
+    public string Province { get; set; } = null!;
+
+    public string District { get; set; } = null!;
+
+    public string Ward { get; set; } = null!;
+
+    public string DetailAddress { get; set; } = null!;
 
     public string ShippingMethod { get; set; } = null!;
 

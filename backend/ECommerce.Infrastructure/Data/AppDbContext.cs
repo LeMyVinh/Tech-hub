@@ -243,6 +243,18 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
 
+            // FIX (đơn hàng bị đổi theo địa chỉ mới): mapping cho các cột snapshot
+            // địa chỉ mới thêm vào Order. Các cột này được ghi 1 lần duy nhất khi tạo
+            // đơn (OrderService.CreateOrderAsync) và không phụ thuộc vào bảng Address
+            // nữa khi hiển thị chi tiết đơn hàng, nên nếu khách sửa lại Address gốc
+            // sau này, đơn hàng cũ vẫn hiển thị đúng địa chỉ đã dùng để giao hàng.
+            entity.Property(e => e.RecipientName).HasMaxLength(150);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.Province).HasMaxLength(100);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.Ward).HasMaxLength(100);
+            entity.Property(e => e.DetailAddress).HasMaxLength(255);
+
             entity.HasOne(d => d.Address).WithMany(p => p.Orders)
                 .HasForeignKey(d => d.AddressId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
