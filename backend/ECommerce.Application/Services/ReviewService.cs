@@ -4,9 +4,10 @@ namespace ECommerce.Application;
 
 public class ReviewService : IReviewService
 {
-    // FIX: chặn spam dữ liệu — trước đây CreateReviewRequest.ImageUrls không giới
-    // hạn số lượng, cho phép 1 review tạo ra hàng trăm dòng ReviewImage.
     private const int MaxReviewImages = 5;
+
+    // FIX (bug report #5): giới hạn độ dài Comment để chống spam nội dung khổng lồ.
+    private const int MaxCommentLength = 2000;
 
     private readonly IReviewRepository _reviewRepository;
     private readonly IOrderRepository _orderRepository;
@@ -21,6 +22,9 @@ public class ReviewService : IReviewService
     {
         if (request.Rating < 1 || request.Rating > 5)
             throw new ReviewException(400, "Đánh giá phải từ 1 đến 5 sao.");
+
+        if (!string.IsNullOrEmpty(request.Comment) && request.Comment.Trim().Length > MaxCommentLength)
+            throw new ReviewException(400, $"Nội dung đánh giá không được vượt quá {MaxCommentLength} ký tự.");
 
         if (request.ImageUrls != null && request.ImageUrls.Count > MaxReviewImages)
             throw new ReviewException(400, $"Chỉ được tải lên tối đa {MaxReviewImages} hình ảnh cho mỗi đánh giá.");
@@ -48,7 +52,7 @@ public class ReviewService : IReviewService
             ProductId = request.ProductId,
             UserId = userId,
             Rating = (sbyte)request.Rating,
-            Comment = request.Comment,
+            Comment = request.Comment?.Trim(),
             Status = "Pending",
             CreatedAt = DateTime.UtcNow,
             ReviewImages = request.ImageUrls?.Select(url => new ReviewImage

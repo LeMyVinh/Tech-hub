@@ -6,12 +6,6 @@ public sealed class ProductService : IProductService
 {
     private const int DetailReviewPageSize = 20;
 
-    // FIX: whitelist các giá trị Status hợp lệ. Trước đây request.Status được gán
-    // thẳng vào Product.Status mà không kiểm tra, trong khi rất nhiều nơi khác
-    // (ProductRepository.SearchAsync, CartService, WishlistService, OrderService...)
-    // đều so sánh cứng == "Active". Một giá trị Status sai chính tả (vd "active",
-    // "Actve") sẽ khiến sản phẩm âm thầm biến mất khỏi tìm kiếm / không mua được,
-    // rất khó phát hiện vì API vẫn trả 200 OK.
     private static readonly HashSet<string> ValidProductStatuses =
         new(StringComparer.OrdinalIgnoreCase) { "Active", "Inactive" };
 
@@ -53,6 +47,19 @@ public sealed class ProductService : IProductService
 
         if (request.Variants == null || request.Variants.Count == 0)
             throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        // FIX (bug report #3): trước đây chỉ kiểm tra SKU trùng với DB
+        // (ExistsBySkuAsync), không phát hiện được trường hợp 2 dòng biến thể MỚI
+        // trong CÙNG một request có SKU trùng nhau -> DbUpdateException (unique
+        // index) văng thẳng ra ngoài thành lỗi 500 thô cho Admin. Kiểm tra trùng
+        // lặp ngay trong payload trước khi chạm DB.
+        var duplicateSkuInRequest = request.Variants
+            .Select(v => v.Sku?.Trim().ToLowerInvariant())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .GroupBy(s => s)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateSkuInRequest != null)
+            throw new CatalogException(400, $"Mã SKU '{duplicateSkuInRequest.Key}' bị trùng lặp trong danh sách biến thể.");
 
         foreach (var v in request.Variants)
         {
@@ -136,6 +143,17 @@ public sealed class ProductService : IProductService
 
         if (request.Variants == null || request.Variants.Count == 0)
             throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        // FIX (bug report #3): cùng lý do như CreateAsync — chặn SKU trùng lặp
+        // NGAY TRONG payload (bao gồm cả các dòng chỉnh sửa lẫn dòng mới thêm)
+        // trước khi kiểm tra với DB, để trả lỗi 400 rõ ràng thay vì 500 thô.
+        var duplicateSkuInRequest = request.Variants
+            .Select(v => v.Sku?.Trim().ToLowerInvariant())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .GroupBy(s => s)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateSkuInRequest != null)
+            throw new CatalogException(400, $"Mã SKU '{duplicateSkuInRequest.Key}' bị trùng lặp trong danh sách biến thể.");
 
         foreach (var v in request.Variants)
         {
@@ -303,10 +321,6 @@ public sealed class ProductService : IProductService
 
         var avgRating = await _reviewRepository.GetAverageRatingAsync(id);
 
-        // FIX: tách riêng tổng số đánh giá thật (dùng cho hiển thị "(N đánh giá)")
-        // khỏi danh sách một trang review mới nhất hiển thị trong tab — trước đây
-        // FE dùng reviews.length để đếm, nên khi giới hạn danh sách còn tối đa
-        // DetailReviewPageSize phần tử, số đếm hiển thị bị sai (thấp hơn thực tế).
         var totalReviewCount = await _reviewRepository.GetByProductIdCountAsync(id);
         var latestReviews = await _reviewRepository.GetByProductIdAsync(id, page: 1, pageSize: DetailReviewPageSize);
 

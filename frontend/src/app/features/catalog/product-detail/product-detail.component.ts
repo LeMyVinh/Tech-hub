@@ -9,6 +9,7 @@ import {
 import { AuthService } from '../../../auth.service';
 import { CartService } from '../../cart/cart.service';
 import { WishlistService } from '../../wishlist/wishlist.service';
+import { ToastService } from '../../../shared/toast/toast.service';
 
 @Component({
   selector: 'app-product-detail',
@@ -36,6 +37,7 @@ export class ProductDetailComponent implements OnInit {
     private readonly cartService: CartService,
     private readonly wishlistService: WishlistService,
     private readonly auth: AuthService,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -124,11 +126,13 @@ export class ProductDetailComponent implements OnInit {
     this.cartService.addToCart(session.token, variant.id, this.quantity()).subscribe({
       next: () => {
         this.addingToCart.set(false);
-        alert(`Đã thêm ${this.quantity()} sản phẩm (${variant.variantName}) vào giỏ hàng!`);
+        // FIX (bug report #8): dùng ToastService thay vì alert() để đồng nhất UX
+        // với các trang khác (account, wishlist) và không chặn UI thread.
+        this.toast.success(`Đã thêm ${this.quantity()} sản phẩm (${variant.variantName}) vào giỏ hàng!`);
       },
       error: () => {
         this.addingToCart.set(false);
-        alert('Thêm vào giỏ hàng thất bại, vui lòng thử lại.');
+        this.toast.error('Thêm vào giỏ hàng thất bại, vui lòng thử lại.');
       },
     });
   }
@@ -153,7 +157,7 @@ export class ProductDetailComponent implements OnInit {
         },
         error: () => {
           this.addingToWishlist.set(false);
-          alert('Xóa khỏi danh sách yêu thích thất bại, vui lòng thử lại.');
+          this.toast.error('Xóa khỏi danh sách yêu thích thất bại, vui lòng thử lại.');
         },
       });
     } else {
@@ -164,7 +168,7 @@ export class ProductDetailComponent implements OnInit {
         },
         error: err => {
           this.addingToWishlist.set(false);
-          alert(err.error?.message ?? 'Thêm vào danh sách yêu thích thất bại, vui lòng thử lại.');
+          this.toast.error(err.error?.message ?? 'Thêm vào danh sách yêu thích thất bại, vui lòng thử lại.');
         },
       });
     }

@@ -1,6 +1,7 @@
 using ECommerce.Application;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.API.Controllers;
 
@@ -28,6 +29,14 @@ public sealed class AdminProductController : ControllerBase
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
         }
+        catch (DbUpdateException)
+        {
+            // FIX (bug report #11): race window nhỏ giữa lúc kiểm tra SKU trùng
+            // (ExistsBySkuAsync) và lúc thực sự ghi xuống DB — 2 Admin cùng tạo
+            // sản phẩm với SKU trùng gần như đồng thời có thể vượt qua kiểm tra
+            // và va vào unique index. Trước đây lỗi này lộ ra thành 500 thô.
+            return Conflict(new { message = "Mã SKU vừa được sử dụng bởi một thao tác khác. Vui lòng thử lại." });
+        }
     }
 
     [HttpPut("{id:int}")]
@@ -41,6 +50,10 @@ public sealed class AdminProductController : ControllerBase
         catch (CatalogException ex)
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { message = "Mã SKU vừa được sử dụng bởi một thao tác khác. Vui lòng thử lại." });
         }
     }
 

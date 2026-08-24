@@ -15,7 +15,14 @@ public class DashboardRepository : IDashboardRepository
 
     public async Task<DashboardRawData> GetRawDataAsync(DateTime startDate, DateTime endDate)
     {
-        var previousStart = startDate.AddDays(-(endDate - startDate).Days);
+        // FIX (bug report #4): trước đây dùng (endDate - startDate).Days trực tiếp.
+        // Khi Admin lọc theo 1 ngày duy nhất (startDate == endDate, hoặc endDate chỉ
+        // hơn vài giờ trong cùng ngày do truyền DateTime.Now), khoảng cách ngày = 0,
+        // khiến previousStart = startDate -> kỳ trước rỗng ([startDate, startDate)),
+        // luôn = 0 -> DashboardService hiển thị tăng trưởng cố định 100% dù không có
+        // ý nghĩa so sánh thực sự. Ép tối thiểu 1 ngày cho độ dài kỳ so sánh.
+        var rangeDays = Math.Max((endDate.Date - startDate.Date).Days, 1);
+        var previousStart = startDate.AddDays(-rangeDays);
 
         var currentRevenue = await _context.Orders
             .Where(o => o.Status != "Cancelled" && o.CreatedAt >= startDate && o.CreatedAt <= endDate)

@@ -1,0 +1,2842 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class User
+{
+    public int Id { get; set; }
+
+    public string FullName { get; set; } = null!;
+
+    public string Email { get; set; } = null!;
+
+    public string PasswordHash { get; set; } = null!;
+
+    public string? Phone { get; set; }
+
+    public int RoleId { get; set; }
+
+    public bool? IsActive { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
+
+    // AUTH-079 fix: brute-force lockout bookkeeping.
+    // FailedLoginAttempts resets to 0 on every successful login;
+    // LockedUntil is set once the attempt count hits the threshold and
+    // cleared again once it naturally expires or login succeeds.
+    public int FailedLoginAttempts { get; set; }
+
+    public DateTime? LockedUntil { get; set; }
+
+    // EMAIL VERIFICATION: false cho tới khi user bấm link xác thực gửi qua email.
+    // Login bị chặn (403) khi cờ này còn false, xem AuthService.LoginAsync.
+    public bool EmailVerified { get; set; }
+
+    public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
+
+    public virtual Cart? Cart { get; set; }
+
+    public virtual ICollection<EmailVerificationToken> EmailVerificationTokens { get; set; } = new List<EmailVerificationToken>();
+
+    public virtual ICollection<OrderStatusLog> OrderStatusLogs { get; set; } = new List<OrderStatusLog>();
+
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    public virtual ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
+
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+    public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
+
+    public virtual Role Role { get; set; } = null!;
+
+    public virtual ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
+}﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class Product
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string? Description { get; set; }
+
+    public int CategoryId { get; set; }
+
+    public int BrandId { get; set; }
+
+    public string Status { get; set; } = null!;
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
+
+    public virtual Brand Brand { get; set; } = null!;
+
+    public virtual Category Category { get; set; } = null!;
+
+    public virtual ICollection<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
+
+    public virtual ICollection<ProductVariant> ProductVariants { get; set; } = new List<ProductVariant>();
+
+    public virtual ICollection<Review> Reviews { get; set; } = new List<Review>();
+
+    public virtual ICollection<WishlistItem> WishlistItems { get; set; } = new List<WishlistItem>();
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class Category
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public int? ParentId { get; set; }
+
+    public bool? IsActive { get; set; }
+
+    public virtual ICollection<Category> InverseParent { get; set; } = new List<Category>();
+
+    public virtual Category? Parent { get; set; }
+
+    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class Brand
+{
+    public int Id { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string? LogoUrl { get; set; }
+
+    public bool? IsActive { get; set; }
+
+    public virtual ICollection<Product> Products { get; set; } = new List<Product>();
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class Review
+{
+    public int Id { get; set; }
+
+    public int OrderItemId { get; set; }
+
+    public int ProductId { get; set; }
+
+    public int UserId { get; set; }
+
+    public sbyte Rating { get; set; }
+
+    public string? Comment { get; set; }
+
+    public string Status { get; set; } = null!;
+
+    public string? RejectReason { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public virtual OrderItem OrderItem { get; set; } = null!;
+
+    public virtual Product Product { get; set; } = null!;
+
+    public virtual ICollection<ReviewImage> ReviewImages { get; set; } = new List<ReviewImage>();
+
+    public virtual User User { get; set; } = null!;
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class Address
+{
+    public int Id { get; set; }
+
+    public int UserId { get; set; }
+
+    public string RecipientName { get; set; } = null!;
+
+    public string Phone { get; set; } = null!;
+
+    public string Province { get; set; } = null!;
+
+    public string District { get; set; } = null!;
+
+    public string Ward { get; set; } = null!;
+
+    public string DetailAddress { get; set; } = null!;
+
+    public bool IsDefault { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    public virtual User User { get; set; } = null!;
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class ProductVariant
+{
+    public int Id { get; set; }
+
+    public int ProductId { get; set; }
+
+    public string VariantName { get; set; } = null!;
+
+    public string Sku { get; set; } = null!;
+
+    public decimal Price { get; set; }
+
+    public int StockQuantity { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public virtual ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
+
+    public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+
+    public virtual Product Product { get; set; } = null!;
+}
+﻿using System;
+using System.Collections.Generic;
+
+namespace ECommerce.Domain;
+
+public partial class ProductImage
+{
+    public int Id { get; set; }
+
+    public int ProductId { get; set; }
+
+    public string ImageUrl { get; set; } = null!;
+
+    public bool IsPrimary { get; set; }
+
+    public virtual Product Product { get; set; } = null!;
+}
+using System;
+using System.Collections.Generic;
+using ECommerce.Domain;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
+
+namespace ECommerce.Infrastructure.Data;
+
+public partial class AppDbContext : DbContext
+{
+    public AppDbContext()
+    {
+    }
+
+    public AppDbContext(DbContextOptions<AppDbContext> options)
+        : base(options)
+    {
+    }
+
+    public virtual DbSet<Address> Addresses { get; set; }
+
+    public virtual DbSet<Brand> Brands { get; set; }
+
+    public virtual DbSet<Cart> Carts { get; set; }
+
+    public virtual DbSet<CartItem> CartItems { get; set; }
+
+    public virtual DbSet<Category> Categories { get; set; }
+
+    public virtual DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
+
+    public virtual DbSet<Order> Orders { get; set; }
+
+    public virtual DbSet<OrderItem> OrderItems { get; set; }
+
+    public virtual DbSet<OrderStatusLog> OrderStatusLogs { get; set; }
+
+    public virtual DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+
+    public virtual DbSet<Payment> Payments { get; set; }
+
+    public virtual DbSet<Product> Products { get; set; }
+
+    public virtual DbSet<ProductImage> ProductImages { get; set; }
+
+    public virtual DbSet<ProductVariant> ProductVariants { get; set; }
+
+    public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
+
+    public virtual DbSet<Review> Reviews { get; set; }
+
+    public virtual DbSet<ReviewImage> ReviewImages { get; set; }
+
+    public virtual DbSet<Role> Roles { get; set; }
+
+    public virtual DbSet<User> Users { get; set; }
+
+    public virtual DbSet<WishlistItem> WishlistItems { get; set; }
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder
+            .UseCollation("utf8mb4_unicode_ci")
+            .HasCharSet("utf8mb4");
+
+        // === FIX: MySQL/Pomelo trả về DateTime với Kind=Unspecified, khiến khi
+        // serialize sang JSON chuỗi thời gian không có hậu tố 'Z' (UTC marker).
+        // Angular DatePipe khi đó hiểu nhầm đây là giờ local của trình duyệt
+        // và hiển thị nguyên văn -> lệch 7 tiếng so với giờ VN thực tế (vì toàn
+        // bộ code backend đang lưu bằng DateTime.UtcNow).
+        // Đoạn dưới đây ép mọi cột DateTime/DateTime? khi đọc từ DB lên đều
+        // được gắn nhãn Kind=Utc, áp dụng tự động cho TẤT CẢ entity/property
+        // mà không cần khai báo lặp lại ở từng bảng.
+        var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v,
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+        var utcNullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
+            v => v,
+            v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(utcDateTimeConverter);
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(utcNullableDateTimeConverter);
+                }
+            }
+        }
+
+        modelBuilder.Entity<Address>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Address");
+
+            entity.HasIndex(e => e.UserId, "idx_address_user");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.DetailAddress).HasMaxLength(255);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.Province).HasMaxLength(100);
+            entity.Property(e => e.RecipientName).HasMaxLength(150);
+            entity.Property(e => e.Ward).HasMaxLength(100);
+
+            entity.HasOne(d => d.User).WithMany(p => p.Addresses)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_address_user");
+        });
+
+        modelBuilder.Entity<Brand>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Brand");
+
+            entity.HasIndex(e => e.Name, "Name").IsUnique();
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValueSql("'1'");
+            entity.Property(e => e.LogoUrl).HasMaxLength(500);
+            entity.Property(e => e.Name).HasMaxLength(150);
+        });
+
+        modelBuilder.Entity<Cart>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Cart");
+
+            entity.HasIndex(e => e.UserId, "UserId").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.User).WithOne(p => p.Cart)
+                .HasForeignKey<Cart>(d => d.UserId)
+                .HasConstraintName("fk_cart_user");
+        });
+
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("CartItem");
+
+            entity.HasIndex(e => e.ProductVariantId, "fk_cartitem_variant");
+
+            entity.HasIndex(e => new { e.CartId, e.ProductVariantId }, "uq_cartitem_cart_variant").IsUnique();
+
+            entity.HasOne(d => d.Cart).WithMany(p => p.CartItems)
+                .HasForeignKey(d => d.CartId)
+                .HasConstraintName("fk_cartitem_cart");
+
+            entity.HasOne(d => d.ProductVariant).WithMany(p => p.CartItems)
+                .HasForeignKey(d => d.ProductVariantId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_cartitem_variant");
+        });
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Category");
+
+            entity.HasIndex(e => e.ParentId, "fk_category_parent");
+
+            entity.HasIndex(e => new { e.Name, e.ParentId }, "uq_category_name_parent").IsUnique();
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValueSql("'1'");
+            entity.Property(e => e.Name).HasMaxLength(150);
+
+            entity.HasOne(d => d.Parent).WithMany(p => p.InverseParent)
+                .HasForeignKey(d => d.ParentId)
+                .HasConstraintName("fk_category_parent");
+        });
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
+{
+    entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+    entity.ToTable("EmailVerificationToken");
+
+    // OTP: không còn unique toàn hệ thống, chỉ unique/tra cứu theo (UserId, Token)
+    // vì mã OTP 6 số có thể trùng giữa nhiều user khác nhau.
+    entity.HasIndex(e => new { e.UserId, e.Token }, "idx_emailverify_user_token");
+
+    entity.Property(e => e.CreatedAt)
+        .HasDefaultValueSql("CURRENT_TIMESTAMP")
+        .HasColumnType("datetime");
+    entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
+    entity.Property(e => e.Token).HasMaxLength(10);
+
+    entity.HasOne(d => d.User).WithMany(p => p.EmailVerificationTokens)
+        .HasForeignKey(d => d.UserId)
+        .HasConstraintName("fk_emailverify_user");
+});
+
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Order");
+
+            entity.HasIndex(e => e.AddressId, "fk_order_address");
+
+            entity.HasIndex(e => e.CreatedAt, "idx_order_createdat");
+
+            entity.HasIndex(e => new { e.UserId, e.Status }, "idx_order_user_status");
+
+            entity.Property(e => e.CancelReason).HasMaxLength(255);
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ShippingMethod)
+                .HasMaxLength(50)
+                .HasDefaultValueSql("'Standard'");
+            // BUG FIX: cột mới lưu phí vận chuyển thực tế được backend tính (không tin
+            // số tiền FE gửi lên) — xem OrderService.ResolveShippingFee.
+            entity.Property(e => e.ShippingFee)
+                .HasPrecision(15, 2)
+                .HasDefaultValueSql("'0.00'");
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'Pending'")
+                .HasColumnType("enum('Pending','Confirmed','Processing','Shipping','Delivered','Cancelled')");
+            entity.Property(e => e.TotalAmount).HasPrecision(15, 2);
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+
+            // FIX (đơn hàng bị đổi theo địa chỉ mới): mapping cho các cột snapshot
+            // địa chỉ mới thêm vào Order. Các cột này được ghi 1 lần duy nhất khi tạo
+            // đơn (OrderService.CreateOrderAsync) và không phụ thuộc vào bảng Address
+            // nữa khi hiển thị chi tiết đơn hàng, nên nếu khách sửa lại Address gốc
+            // sau này, đơn hàng cũ vẫn hiển thị đúng địa chỉ đã dùng để giao hàng.
+            entity.Property(e => e.RecipientName).HasMaxLength(150);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.Province).HasMaxLength(100);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.Ward).HasMaxLength(100);
+            entity.Property(e => e.DetailAddress).HasMaxLength(255);
+
+            entity.HasOne(d => d.Address).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.AddressId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_order_address");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_order_user");
+        });
+
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("OrderItem");
+
+            entity.HasIndex(e => e.OrderId, "fk_orderitem_order");
+
+            entity.HasIndex(e => e.ProductVariantId, "idx_orderitem_variant");
+
+            entity.Property(e => e.UnitPrice).HasPrecision(15, 2);
+
+            entity.HasOne(d => d.Order).WithMany(p => p.OrderItems)
+                .HasForeignKey(d => d.OrderId)
+                .HasConstraintName("fk_orderitem_order");
+
+            entity.HasOne(d => d.ProductVariant).WithMany(p => p.OrderItems)
+                .HasForeignKey(d => d.ProductVariantId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_orderitem_variant");
+        });
+
+        modelBuilder.Entity<OrderStatusLog>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("OrderStatusLog");
+
+            entity.HasIndex(e => e.OrderId, "fk_statuslog_order");
+
+            entity.HasIndex(e => e.ChangedBy, "fk_statuslog_user");
+
+            entity.Property(e => e.ChangedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Status).HasMaxLength(50);
+
+            entity.HasOne(d => d.ChangedByNavigation).WithMany(p => p.OrderStatusLogs)
+                .HasForeignKey(d => d.ChangedBy)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_statuslog_user");
+
+            entity.HasOne(d => d.Order).WithMany(p => p.OrderStatusLogs)
+                .HasForeignKey(d => d.OrderId)
+                .HasConstraintName("fk_statuslog_order");
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("PasswordResetToken");
+
+            entity.HasIndex(e => e.Token, "Token").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "fk_pwdreset_user");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
+            entity.Property(e => e.Token).HasMaxLength(100);
+
+            entity.HasOne(d => d.User).WithMany(p => p.PasswordResetTokens)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_pwdreset_user");
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Payment");
+
+            entity.HasIndex(e => e.OrderId, "OrderId").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Method).HasColumnType("enum('COD','VNPay')");
+            entity.Property(e => e.PaidAt).HasColumnType("datetime");
+            // BUG FIX: thêm trạng thái 'Refunded' — khi Admin hủy đơn đã thanh toán VNPay
+            // thành công, hệ thống đánh dấu cần hoàn tiền thay vì im lặng bỏ qua.
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'Pending'")
+                .HasColumnType("enum('Pending','Success','Failed','Refunded')");
+            entity.Property(e => e.TransactionCode).HasMaxLength(100);
+             
+             entity.Property(e => e.TransactionDate).HasMaxLength(14);
+             entity.Property(e => e.RefundResponseId).HasMaxLength(50);
+
+            entity.HasOne(d => d.Order).WithOne(p => p.Payment)
+                .HasForeignKey<Payment>(d => d.OrderId)
+                .HasConstraintName("fk_payment_order");
+        });
+
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Product");
+
+            entity.HasIndex(e => e.BrandId, "fk_product_brand");
+
+            entity.HasIndex(e => e.CategoryId, "fk_product_category");
+
+            entity.HasIndex(e => e.Name, "ftx_product_name").HasAnnotation("MySql:FullTextIndex", true);
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Description).HasColumnType("text");
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'Active'")
+                .HasColumnType("enum('Active','Inactive')");
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.Brand).WithMany(p => p.Products)
+                .HasForeignKey(d => d.BrandId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_product_brand");
+
+            entity.HasOne(d => d.Category).WithMany(p => p.Products)
+                .HasForeignKey(d => d.CategoryId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_product_category");
+        });
+
+        modelBuilder.Entity<ProductImage>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("ProductImage");
+
+            entity.HasIndex(e => e.ProductId, "fk_image_product");
+
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+
+            entity.HasOne(d => d.Product).WithMany(p => p.ProductImages)
+                .HasForeignKey(d => d.ProductId)
+                .HasConstraintName("fk_image_product");
+        });
+
+        modelBuilder.Entity<ProductVariant>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("ProductVariant");
+
+            entity.HasIndex(e => e.Sku, "SKU").IsUnique();
+
+            entity.HasIndex(e => e.ProductId, "fk_variant_product");
+
+            entity.HasIndex(e => e.Price, "idx_variant_price");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Price).HasPrecision(15, 2);
+            entity.Property(e => e.Sku)
+                .HasMaxLength(100)
+                .HasColumnName("SKU");
+            entity.Property(e => e.VariantName).HasMaxLength(255);
+
+            entity.HasOne(d => d.Product).WithMany(p => p.ProductVariants)
+                .HasForeignKey(d => d.ProductId)
+                .HasConstraintName("fk_variant_product");
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("RefreshToken");
+
+            entity.HasIndex(e => e.UserId, "fk_refreshtoken_user");
+
+            entity.HasIndex(e => e.Token, "idx_refreshtoken_token").HasAnnotation("MySql:IndexPrefixLength", new[] { 191 });
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.ExpiredAt).HasColumnType("datetime");
+            entity.Property(e => e.Token).HasMaxLength(500);
+
+            entity.HasOne(d => d.User).WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_refreshtoken_user");
+        });
+
+        modelBuilder.Entity<Review>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Review");
+
+            entity.HasIndex(e => e.OrderItemId, "OrderItemId").IsUnique();
+
+            entity.HasIndex(e => e.UserId, "fk_review_user");
+
+            entity.HasIndex(e => new { e.ProductId, e.Status }, "idx_review_product_status");
+
+            entity.Property(e => e.Comment).HasColumnType("text");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.RejectReason).HasMaxLength(255);
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'Pending'")
+                .HasColumnType("enum('Pending','Approved','Rejected')");
+
+            entity.HasOne(d => d.OrderItem).WithOne(p => p.Review)
+                .HasForeignKey<Review>(d => d.OrderItemId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_review_orderitem");
+
+            entity.HasOne(d => d.Product).WithMany(p => p.Reviews)
+                .HasForeignKey(d => d.ProductId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_review_product");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Reviews)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_review_user");
+        });
+
+        modelBuilder.Entity<ReviewImage>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("ReviewImage");
+
+            entity.HasIndex(e => e.ReviewId, "fk_reviewimage_review");
+
+            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+
+            entity.HasOne(d => d.Review).WithMany(p => p.ReviewImages)
+                .HasForeignKey(d => d.ReviewId)
+                .HasConstraintName("fk_reviewimage_review");
+        });
+
+        modelBuilder.Entity<Role>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("Role");
+
+            entity.HasIndex(e => e.Name, "Name").IsUnique();
+
+            entity.Property(e => e.Name).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("User");
+
+            entity.HasIndex(e => e.Email, "Email").IsUnique();
+
+            entity.HasIndex(e => e.RoleId, "fk_user_role");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.EmailVerified)
+                .IsRequired()
+                .HasDefaultValueSql("'0'");
+            entity.Property(e => e.FullName).HasMaxLength(150);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValueSql("'1'");
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.Role).WithMany(p => p.Users)
+                .HasForeignKey(d => d.RoleId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_user_role");
+        });
+
+        modelBuilder.Entity<WishlistItem>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("WishlistItem");
+
+            entity.HasIndex(e => e.ProductId, "fk_wishlist_product");
+
+            entity.HasIndex(e => new { e.UserId, e.ProductId }, "uq_wishlist_user_product").IsUnique();
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime");
+
+            entity.HasOne(d => d.Product).WithMany(p => p.WishlistItems)
+                .HasForeignKey(d => d.ProductId)
+                .HasConstraintName("fk_wishlist_product");
+
+            entity.HasOne(d => d.User).WithMany(p => p.WishlistItems)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_wishlist_user");
+        });
+
+        OnModelCreatingPartial(modelBuilder);
+    }
+
+    partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
+}using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public class UserRepository : IUserRepository
+{
+    private readonly AppDbContext _db;
+    public UserRepository(AppDbContext db) => _db = db;
+
+    public Task<User?> GetByEmailAsync(string email) =>
+        _db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Email == email);
+
+    public Task<User?> GetByIdAsync(int id) =>
+        _db.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id);
+
+    public async Task<List<User>> GetAllAsync(int page, int pageSize) =>
+        await _db.Users.Include(u => u.Role)
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+    public async Task<int> GetCountAsync() =>
+        await _db.Users.CountAsync();
+
+    // FIX: đếm số Admin đang hoạt động (IsActive = true), dùng để chặn khóa nốt
+    // Admin cuối cùng của hệ thống.
+    public async Task<int> GetActiveAdminCountAsync() =>
+        await _db.Users.CountAsync(u => u.Role.Name == "Admin" && u.IsActive == true);
+
+    public async Task AddAsync(User user) => await _db.Users.AddAsync(user);
+
+    public Task SaveChangesAsync() => _db.SaveChangesAsync();
+}using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public sealed class ProductRepository : IProductRepository
+{
+    private readonly AppDbContext _db;
+    private readonly IMemoryCache _cache;
+
+    private const string CategoryTreeCacheKey = "product-repo:category-tree";
+    private static readonly TimeSpan CategoryTreeCacheDuration = TimeSpan.FromMinutes(5);
+
+    public ProductRepository(AppDbContext db, IMemoryCache cache)
+    {
+        _db = db;
+        _cache = cache;
+    }
+
+    public async Task<Product?> GetByIdAsync(int id, bool includeInactive = false)
+    {
+        var query = _db.Products.AsQueryable();
+        if (!includeInactive)
+        {
+            query = query.Where(p => p.Status == "Active");
+        }
+        return await query.FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Product?> GetWithDetailsAsync(int id, bool includeInactive = false)
+    {
+        // PERF FIX: trước đây Include(p => p.Reviews).ThenInclude(r => r.User) load
+        // TOÀN BỘ review của sản phẩm (không giới hạn số lượng) mỗi khi khách xem
+        // trang chi tiết, chỉ để tính điểm trung bình và hiển thị vài review mới
+        // nhất. Với sản phẩm bán chạy có hàng nghìn review, việc này kéo tụt hiệu
+        // năng nghiêm trọng. Giờ không include Reviews ở đây nữa — ProductService
+        // lấy điểm trung bình + danh sách review (đã phân trang) qua
+        // IReviewRepository (GetAverageRatingAsync / GetByProductIdAsync).
+        var query = _db.Products
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductVariants)
+            .Include(p => p.ProductImages)
+            .AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(p =>
+                p.Status == "Active" &&
+                p.Category.IsActive == true &&
+                p.Brand.IsActive == true);
+        }
+
+        return await query.FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false)
+    {
+        var query = _db.Products
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .Include(p => p.ProductVariants)
+            .Include(p => p.ProductImages)
+            .AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(p => p.Status == "Active" && p.Category.IsActive == true && p.Brand.IsActive == true);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var kw = filter.Keyword.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(kw));
+        }
+
+        if (filter.CategoryId.HasValue)
+        {
+            var categoryIds = await GetCategoryIdsWithDescendantsAsync(filter.CategoryId.Value);
+            query = query.Where(p => categoryIds.Contains(p.CategoryId));
+        }
+
+        if (filter.BrandId.HasValue)
+        {
+            query = query.Where(p => p.BrandId == filter.BrandId.Value);
+        }
+        if (filter.MinPrice.HasValue || filter.MaxPrice.HasValue)
+        {
+            var minPrice = filter.MinPrice;
+            var maxPrice = filter.MaxPrice;
+            query = query.Where(p => p.ProductVariants.Any(v =>
+                (!minPrice.HasValue || v.Price >= minPrice.Value) &&
+                (!maxPrice.HasValue || v.Price <= maxPrice.Value)));
+        }
+
+        query = filter.Sort?.ToLower() switch
+        {
+            "price_asc" => query.OrderBy(p => p.ProductVariants.Min(v => (decimal?)v.Price) ?? 0),
+            "price_desc" => query.OrderByDescending(p => p.ProductVariants.Min(v => (decimal?)v.Price) ?? 0),
+            "newest" => query.OrderByDescending(p => p.CreatedAt),
+            _ => query.OrderByDescending(p => p.Id)
+        };
+
+        var totalCount = await query.CountAsync();
+
+        var page = filter.Page < 1 ? 1 : filter.Page;
+        var pageSize = filter.PageSize > 100 ? 100 : (filter.PageSize < 1 ? 20 : filter.PageSize);
+
+        var products = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var items = products.Select(p =>
+        {
+            var prices = p.ProductVariants.Select(v => v.Price).ToList();
+            var minPrice = prices.Count > 0 ? prices.Min() : 0;
+            var maxPrice = prices.Count > 0 ? prices.Max() : 0;
+            var primaryImage = p.ProductImages.FirstOrDefault(img => img.IsPrimary == true)?.ImageUrl
+                ?? p.ProductImages.FirstOrDefault()?.ImageUrl;
+
+            return new ProductSummaryResponse(
+                p.Id,
+                p.Name,
+                p.Category.Name,
+                p.Brand.Name,
+                minPrice,
+                maxPrice,
+                primaryImage,
+                p.Status
+            );
+        }).ToList();
+
+        return new PagedResult<ProductSummaryResponse>(items, totalCount, page, pageSize);
+    }
+
+    private async Task<List<int>> GetCategoryIdsWithDescendantsAsync(int categoryId)
+    {
+        var childrenLookup = await GetCategoryChildrenLookupAsync();
+
+        var result = new List<int> { categoryId };
+        var queue = new Queue<int>();
+        queue.Enqueue(categoryId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+
+            foreach (var childId in childrenLookup[current])
+            {
+                if (!result.Contains(childId))
+                {
+                    result.Add(childId);
+                    queue.Enqueue(childId);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private async Task<ILookup<int, int>> GetCategoryChildrenLookupAsync()
+    {
+        if (_cache.TryGetValue<ILookup<int, int>>(CategoryTreeCacheKey, out var cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var allCategories = await _db.Categories
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.ParentId })
+            .ToListAsync();
+
+        var lookup = allCategories
+            .Where(c => c.ParentId.HasValue)
+            .ToLookup(c => c.ParentId!.Value, c => c.Id);
+
+        _cache.Set(CategoryTreeCacheKey, lookup, CategoryTreeCacheDuration);
+
+        return lookup;
+    }
+
+    public async Task<bool> ExistsBySkuAsync(string sku, int? excludeVariantId = null)
+    {
+        var lowerSku = sku.Trim().ToLower();
+        return await _db.ProductVariants.AnyAsync(v =>
+            v.Sku.ToLower() == lowerSku &&
+            (excludeVariantId == null || v.Id != excludeVariantId));
+    }
+
+    public async Task<bool> HasOrdersAsync(int productId)
+    {
+        return await _db.OrderItems.AnyAsync(oi => oi.ProductVariant.ProductId == productId);
+    }
+
+    public async Task AddAsync(Product product)
+    {
+        await _db.Products.AddAsync(product);
+    }
+
+    public Task UpdateAsync(Product product)
+    {
+        _db.Products.Update(product);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Product product)
+    {
+        _db.Products.Remove(product);
+        return Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+}using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public sealed class CategoryRepository : ICategoryRepository
+{
+    private readonly AppDbContext _db;
+
+    public CategoryRepository(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<Category?> GetByIdAsync(int id)
+    {
+        return await _db.Categories
+            .Include(c => c.Parent)
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<List<Category>> GetAllAsync(bool includeInactive = false)
+    {
+        var query = _db.Categories
+            .Include(c => c.Parent)
+            .AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(c => c.IsActive == true);
+        }
+
+        return await query.ToListAsync();
+    }
+
+    public async Task<bool> ExistsByNameAsync(string name, int? parentId, int? excludeId = null)
+    {
+        var lowerName = name.Trim().ToLower();
+        return await _db.Categories.AnyAsync(c =>
+            c.Name.ToLower() == lowerName &&
+            c.ParentId == parentId &&
+            (excludeId == null || c.Id != excludeId));
+    }
+
+    public async Task<bool> HasActiveProductsAsync(int categoryId)
+    {
+        return await _db.Products.AnyAsync(p => p.CategoryId == categoryId && p.Status == "Active");
+    }
+
+    public async Task AddAsync(Category category)
+    {
+        await _db.Categories.AddAsync(category);
+    }
+
+    public Task UpdateAsync(Category category)
+    {
+        _db.Categories.Update(category);
+        return Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+}
+using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public sealed class BrandRepository : IBrandRepository
+{
+    private readonly AppDbContext _db;
+
+    public BrandRepository(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<Brand?> GetByIdAsync(int id)
+    {
+        return await _db.Brands.FirstOrDefaultAsync(b => b.Id == id);
+    }
+
+    public async Task<List<Brand>> GetAllAsync(bool includeInactive = false)
+    {
+        var query = _db.Brands.AsQueryable();
+
+        if (!includeInactive)
+        {
+            query = query.Where(b => b.IsActive == true);
+        }
+
+        return await query.ToListAsync();
+    }
+
+    public async Task<bool> ExistsByNameAsync(string name, int? excludeId = null)
+    {
+        var lowerName = name.Trim().ToLower();
+        return await _db.Brands.AnyAsync(b =>
+            b.Name.ToLower() == lowerName &&
+            (excludeId == null || b.Id != excludeId));
+    }
+
+    public async Task<bool> HasActiveProductsAsync(int brandId)
+    {
+        return await _db.Products.AnyAsync(p => p.BrandId == brandId && p.Status == "Active");
+    }
+
+    public async Task AddAsync(Brand brand)
+    {
+        await _db.Brands.AddAsync(brand);
+    }
+
+    public Task UpdateAsync(Brand brand)
+    {
+        _db.Brands.Update(brand);
+        return Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+}
+using ECommerce.Application;
+using ECommerce.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public class ReviewRepository : IReviewRepository
+{
+    private readonly Data.AppDbContext _context;
+
+    public ReviewRepository(Data.AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Review?> GetByIdAsync(int id)
+    {
+        return await _context.Reviews
+            .Include(r => r.User)
+            .Include(r => r.ReviewImages)
+            .FirstOrDefaultAsync(r => r.Id == id);
+    }
+
+    public async Task<Review?> GetByOrderItemIdAsync(int orderItemId)
+    {
+        return await _context.Reviews.FirstOrDefaultAsync(r => r.OrderItemId == orderItemId);
+    }
+
+    public async Task<List<Review>> GetByProductIdAsync(int productId, int page, int pageSize)
+    {
+        return await _context.Reviews
+            .Include(r => r.User)
+            .Include(r => r.ReviewImages)
+            .Where(r => r.ProductId == productId && r.Status == "Approved")
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetByProductIdCountAsync(int productId)
+    {
+        return await _context.Reviews.CountAsync(r => r.ProductId == productId && r.Status == "Approved");
+    }
+
+    public async Task<List<Review>> GetPendingReviewsAsync(int page, int pageSize)
+    {
+        return await _context.Reviews
+            .Include(r => r.User)
+            .Include(r => r.Product)
+            .Include(r => r.ReviewImages)
+            .Where(r => r.Status == "Pending")
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetPendingReviewsCountAsync()
+    {
+        return await _context.Reviews.CountAsync(r => r.Status == "Pending");
+    }
+
+    // PERF FIX: trước đây hàm này tải TOÀN BỘ các dòng Review (Approved) của sản
+    // phẩm vào bộ nhớ ứng dụng (ToListAsync) chỉ để tính trung bình một cột Rating
+    // bằng LINQ-to-Objects. Với sản phẩm có nhiều review, đây là lượng dữ liệu
+    // không cần thiết phải kéo qua network + serialize. Giờ dùng AverageAsync để
+    // SQL Server/MySQL tính AVG() trực tiếp, chỉ trả về một giá trị số duy nhất.
+    public async Task<double> GetAverageRatingAsync(int productId)
+    {
+        var query = _context.Reviews
+            .Where(r => r.ProductId == productId && r.Status == "Approved");
+
+        var hasAny = await query.AnyAsync();
+        if (!hasAny) return 0;
+
+        return await query.AverageAsync(r => (double)r.Rating);
+    }
+
+    public async Task AddAsync(Review review)
+    {
+        await _context.Reviews.AddAsync(review);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
+}using ECommerce.Application;
+using ECommerce.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public class AddressRepository : IAddressRepository
+{
+    private readonly Data.AppDbContext _context;
+
+    public AddressRepository(Data.AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Address?> GetByIdAsync(int id)
+    {
+        return await _context.Addresses.FindAsync(id);
+    }
+
+    public async Task<List<Address>> GetByUserIdAsync(int userId)
+    {
+        return await _context.Addresses
+            .Where(a => a.UserId == userId)
+            .OrderByDescending(a => a.IsDefault)
+            .ThenByDescending(a => a.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task AddAsync(Address address)
+    {
+        await _context.Addresses.AddAsync(address);
+    }
+
+    public Task UpdateAsync(Address address)
+    {
+        _context.Addresses.Update(address);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Address address)
+    {
+        _context.Addresses.Remove(address);
+        return Task.CompletedTask;
+    }
+
+    // FIX: kiểm tra địa chỉ có đang được tham chiếu bởi bất kỳ Order nào không.
+    public async Task<bool> HasOrdersAsync(int addressId)
+    {
+        return await _context.Orders.AnyAsync(o => o.AddressId == addressId);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
+}using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public sealed class ProductVariantRepository : IProductVariantRepository
+{
+    private readonly AppDbContext _db;
+
+    public ProductVariantRepository(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    // FIX (#1 - checkout sản phẩm đã bị ẩn): trước đây không Include(Product), nên
+    // CartService/OrderService không có cách nào biết variant đang thuộc sản phẩm đã
+    // bị Admin chuyển Status="Inactive". Một sản phẩm được thêm vào giỏ TRƯỚC KHI bị
+    // ẩn vẫn checkout được bình thường vì code chỉ kiểm tra tồn kho, không kiểm tra
+    // trạng thái kinh doanh. Include ở đây để mọi nơi gọi GetByIdAsync đều có sẵn
+    // variant.Product.Status để kiểm tra.
+    public async Task<ProductVariant?> GetByIdAsync(int id)
+    {
+        return await _db.ProductVariants
+            .Include(v => v.Product)
+            .FirstOrDefaultAsync(v => v.Id == id);
+    }
+
+    public async Task<ProductVariant?> GetByIdWithProductAsync(int id)
+    {
+        return await GetByIdAsync(id);
+    }
+
+    public async Task<List<ProductVariant>> GetByProductIdAsync(int productId)
+    {
+        return await _db.ProductVariants.Where(v => v.ProductId == productId).ToListAsync();
+    }
+
+    public async Task AddAsync(ProductVariant variant)
+    {
+        await _db.ProductVariants.AddAsync(variant);
+    }
+
+    public async Task AddRangeAsync(IEnumerable<ProductVariant> variants)
+    {
+        await _db.ProductVariants.AddRangeAsync(variants);
+    }
+
+    public Task UpdateAsync(ProductVariant variant)
+    {
+        _db.ProductVariants.Update(variant);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(ProductVariant variant)
+    {
+        _db.ProductVariants.Remove(variant);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteRangeAsync(IEnumerable<ProductVariant> variants)
+    {
+        _db.ProductVariants.RemoveRange(variants);
+        return Task.CompletedTask;
+    }
+
+    // RACE-CONDITION FIX (BR-02): UPDATE nguyên tử, điều kiện StockQuantity >= quantity
+    // được kiểm tra ngay trong câu SQL (không phải trong C#), nên DB quyết định ai
+    // "thắng" khi có nhiều request cùng trừ kho một variant, thay vì 2 request cùng đọc
+    // được số dư cũ rồi cùng ghi đè (oversell).
+    public async Task<bool> TryDecrementStockAsync(int variantId, int quantity)
+    {
+        var affected = await _db.ProductVariants
+            .Where(v => v.Id == variantId && v.StockQuantity >= quantity)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(v => v.StockQuantity, v => v.StockQuantity - quantity));
+
+        return affected > 0;
+    }
+
+    public async Task<bool> HasOrdersAsync(int productVariantId)
+    {
+        return await _db.OrderItems
+            .AnyAsync(x => x.ProductVariantId == productVariantId);
+    }
+
+    // FIX: kiểm tra variant có đang tồn tại trong CartItem của bất kỳ khách hàng nào
+    // (dù chưa từng phát sinh đơn hàng). CartItem.ProductVariantId là FK not-null, nên
+    // xóa cứng một variant đang bị tham chiếu sẽ ném DbUpdateException không kiểm soát.
+    public async Task<bool> HasCartItemsAsync(int productVariantId)
+    {
+        return await _db.CartItems
+            .AnyAsync(ci => ci.ProductVariantId == productVariantId);
+    }
+
+    public async Task IncrementStockAsync(int variantId, int quantity)
+    {
+        await _db.ProductVariants
+            .Where(v => v.Id == variantId)
+            .ExecuteUpdateAsync(setters =>
+                setters.SetProperty(v => v.StockQuantity, v => v.StockQuantity + quantity));
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+}using ECommerce.Application;
+using ECommerce.Domain;
+using ECommerce.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public sealed class ProductImageRepository : IProductImageRepository
+{
+    private readonly AppDbContext _db;
+
+    public ProductImageRepository(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    public async Task<ProductImage?> GetByIdAsync(int id)
+    {
+        return await _db.ProductImages.FirstOrDefaultAsync(img => img.Id == id);
+    }
+
+    public async Task<List<ProductImage>> GetByProductIdAsync(int productId)
+    {
+        return await _db.ProductImages.Where(img => img.ProductId == productId).ToListAsync();
+    }
+
+    public async Task AddAsync(ProductImage image)
+    {
+        await _db.ProductImages.AddAsync(image);
+    }
+
+    public async Task AddRangeAsync(IEnumerable<ProductImage> images)
+    {
+        await _db.ProductImages.AddRangeAsync(images);
+    }
+
+    public Task UpdateAsync(ProductImage image)
+    {
+        _db.ProductImages.Update(image);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(ProductImage image)
+    {
+        _db.ProductImages.Remove(image);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteRangeAsync(IEnumerable<ProductImage> images)
+    {
+        _db.ProductImages.RemoveRange(images);
+        return Task.CompletedTask;
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _db.SaveChangesAsync();
+    }
+}
+using System.Text.RegularExpressions;
+using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public class UserService : IUserService
+{
+    // FIX: đồng bộ với rule validate phone ở AuthService/Register (10 số, bắt đầu bằng 0).
+    // Trước đây UpdateUserProfileAsync nhận bất kỳ chuỗi nào cho Phone, không kiểm tra
+    // định dạng, khiến dữ liệu Phone trong DB không nhất quán so với lúc đăng ký.
+    private static readonly Regex PhoneRegex = new(@"^0[0-9]{9}$", RegexOptions.Compiled);
+
+    private readonly IUserRepository _userRepository;
+    private readonly IAddressRepository _addressRepository;
+
+    public UserService(IUserRepository userRepository, IAddressRepository addressRepository)
+    {
+        _userRepository = userRepository;
+        _addressRepository = addressRepository;
+    }
+
+    public async Task<UserProfileResponse> GetUserProfileAsync(int userId)
+    {
+        var user = await _userRepository.GetByIdAsync(userId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        return new UserProfileResponse(
+            user.Id,
+            user.FullName,
+            user.Email,
+            user.Phone,
+            user.Role.Name,
+            user.IsActive ?? true,
+            user.CreatedAt
+        );
+    }
+
+    public async Task<UserProfileResponse> UpdateUserProfileAsync(int userId, UpdateUserProfileRequest request)
+    {
+        var user = await _userRepository.GetByIdAsync(userId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        if (!string.IsNullOrWhiteSpace(request.FullName))
+            user.FullName = request.FullName.Trim();
+
+        if (request.Phone is not null)
+        {
+            var trimmedPhone = request.Phone.Trim();
+
+            // Cho phép xóa trắng số điện thoại (coi như "chưa cập nhật"), nhưng nếu có
+            // nhập giá trị thì phải đúng định dạng.
+            if (trimmedPhone.Length > 0 && !PhoneRegex.IsMatch(trimmedPhone))
+                throw new UserException(400, "Số điện thoại không hợp lệ (phải gồm 10 số, bắt đầu bằng 0).");
+
+            user.Phone = trimmedPhone.Length == 0 ? null : trimmedPhone;
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync();
+
+        return new UserProfileResponse(
+            user.Id,
+            user.FullName,
+            user.Email,
+            user.Phone,
+            user.Role.Name,
+            user.IsActive ?? true,
+            user.CreatedAt
+        );
+    }
+
+    public async Task<List<AddressResponse>> GetUserAddressesAsync(int userId)
+    {
+        var addresses = await _addressRepository.GetByUserIdAsync(userId);
+        return addresses.Select(MapToResponse).ToList();
+    }
+
+    public async Task<AddressResponse> AddAddressAsync(int userId, AddAddressRequest request)
+    {
+        var address = new Address
+        {
+            UserId = userId,
+            RecipientName = request.RecipientName,
+            Phone = request.Phone,
+            DetailAddress = request.DetailAddress,
+            Ward = request.Ward,
+            District = request.District,
+            Province = request.Province,
+            IsDefault = request.IsDefault,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // If setting as default, unset other defaults
+        if (request.IsDefault)
+        {
+            var existingAddresses = await _addressRepository.GetByUserIdAsync(userId);
+            foreach (var existing in existingAddresses.Where(a => a.IsDefault))
+            {
+                existing.IsDefault = false;
+                await _addressRepository.UpdateAsync(existing);
+            }
+        }
+
+        await _addressRepository.AddAsync(address);
+        await _addressRepository.SaveChangesAsync();
+
+        return MapToResponse(address);
+    }
+
+    public async Task<AddressResponse> UpdateAddressAsync(int userId, int addressId, UpdateAddressRequest request)
+    {
+        var address = await _addressRepository.GetByIdAsync(addressId)
+            ?? throw new UserException(404, "Địa chỉ không tồn tại.");
+
+        if (address.UserId != userId)
+            throw new UserException(403, "Bạn không có quyền cập nhật địa chỉ này.");
+
+        address.RecipientName = request.RecipientName;
+        address.Phone = request.Phone;
+        address.DetailAddress = request.DetailAddress;
+        address.Ward = request.Ward;
+        address.District = request.District;
+        address.Province = request.Province;
+
+        // If setting as default, unset other defaults
+        if (request.IsDefault && !address.IsDefault)
+        {
+            var existingAddresses = await _addressRepository.GetByUserIdAsync(userId);
+            foreach (var existing in existingAddresses.Where(a => a.IsDefault && a.Id != addressId))
+            {
+                existing.IsDefault = false;
+                await _addressRepository.UpdateAsync(existing);
+            }
+        }
+
+        address.IsDefault = request.IsDefault;
+
+        await _addressRepository.UpdateAsync(address);
+        await _addressRepository.SaveChangesAsync();
+
+        return MapToResponse(address);
+    }
+
+    public async Task DeleteAddressAsync(int userId, int addressId)
+    {
+        var address = await _addressRepository.GetByIdAsync(addressId)
+            ?? throw new UserException(404, "Địa chỉ không tồn tại.");
+
+        if (address.UserId != userId)
+            throw new UserException(403, "Bạn không có quyền xóa địa chỉ này.");
+
+        if (await _addressRepository.HasOrdersAsync(addressId))
+            throw new UserException(400,
+                "Không thể xóa địa chỉ đã được dùng để đặt hàng. Bạn có thể thêm địa chỉ mới thay thế.");
+
+        await _addressRepository.DeleteAsync(address);
+        await _addressRepository.SaveChangesAsync();
+    }
+
+    public async Task SetDefaultAddressAsync(int userId, int addressId)
+    {
+        var address = await _addressRepository.GetByIdAsync(addressId)
+            ?? throw new UserException(404, "Địa chỉ không tồn tại.");
+
+        if (address.UserId != userId)
+            throw new UserException(403, "Bạn không có quyền cập nhật địa chỉ này.");
+
+        var existingAddresses = await _addressRepository.GetByUserIdAsync(userId);
+        foreach (var existing in existingAddresses.Where(a => a.IsDefault))
+        {
+            existing.IsDefault = false;
+            await _addressRepository.UpdateAsync(existing);
+        }
+
+        address.IsDefault = true;
+        await _addressRepository.UpdateAsync(address);
+        await _addressRepository.SaveChangesAsync();
+    }
+
+    public async Task<UserListResponse> GetAllUsersAsync(int page, int pageSize)
+    {
+        var users = await _userRepository.GetAllAsync(page, pageSize);
+        var totalCount = await _userRepository.GetCountAsync();
+
+        return new UserListResponse(
+            users.Select(u => new UserProfileResponse(
+                u.Id,
+                u.FullName,
+                u.Email,
+                u.Phone,
+                u.Role.Name,
+                u.IsActive ?? true,
+                u.CreatedAt
+            )).ToList(),
+            totalCount,
+            page,
+            pageSize
+        );
+    }
+
+    public async Task LockUserAsync(int targetUserId)
+    {
+        var user = await _userRepository.GetByIdAsync(targetUserId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        // FIX: trước đây MỌI tài khoản Admin đều không thể bị khóa (kể cả khi có
+        // nhiều Admin và một trong số đó đã nghỉ việc / bị lộ tài khoản), đồng thời
+        // KHÔNG có gì đảm bảo hệ thống luôn còn ít nhất 1 Admin hoạt động nếu sau
+        // này quy tắc này được nới lỏng tùy tiện. Giờ: chỉ chặn khi đây là Admin
+        // đang hoạt động CUỐI CÙNG trong hệ thống; nếu còn Admin khác đang hoạt
+        // động, việc khóa được cho phép.
+        if (user.Role.Name == "Admin")
+        {
+            var activeAdminCount = await _userRepository.GetActiveAdminCountAsync();
+            if (activeAdminCount <= 1)
+                throw new UserException(400, "Không thể khóa tài khoản Admin cuối cùng đang hoạt động trong hệ thống.");
+        }
+
+        user.IsActive = false;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync();
+    }
+
+    public async Task UnlockUserAsync(int targetUserId)
+    {
+        var user = await _userRepository.GetByIdAsync(targetUserId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        user.IsActive = true;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync();
+    }
+
+    private static AddressResponse MapToResponse(Address address)
+    {
+        return new AddressResponse(
+            address.Id,
+            address.RecipientName,
+            address.Phone,
+            address.DetailAddress,
+            address.Ward,
+            address.District,
+            address.Province,
+            address.IsDefault
+        );
+    }
+}using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public sealed class ProductService : IProductService
+{
+    private const int DetailReviewPageSize = 20;
+
+    private static readonly HashSet<string> ValidProductStatuses =
+        new(StringComparer.OrdinalIgnoreCase) { "Active", "Inactive" };
+
+    private readonly IProductRepository _productRepository;
+    private readonly ICategoryRepository _categoryRepository;
+    private readonly IBrandRepository _brandRepository;
+    private readonly IProductVariantRepository _variantRepository;
+    private readonly IProductImageRepository _imageRepository;
+    private readonly IReviewRepository _reviewRepository;
+
+    public ProductService(
+        IProductRepository productRepository,
+        ICategoryRepository categoryRepository,
+        IBrandRepository brandRepository,
+        IProductVariantRepository variantRepository,
+        IProductImageRepository imageRepository,
+        IReviewRepository reviewRepository)
+    {
+        _productRepository = productRepository;
+        _categoryRepository = categoryRepository;
+        _brandRepository = brandRepository;
+        _variantRepository = variantRepository;
+        _imageRepository = imageRepository;
+        _reviewRepository = reviewRepository;
+    }
+
+    public async Task<ProductResponse> CreateAsync(CreateProductRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Vui lòng nhập tên sản phẩm.");
+
+        var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
+        if (category == null || category.IsActive != true)
+            throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
+
+        var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+        if (brand == null || brand.IsActive != true)
+            throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+
+        if (request.Variants == null || request.Variants.Count == 0)
+            throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        // FIX (bug report #3): trước đây chỉ kiểm tra SKU trùng với DB
+        // (ExistsBySkuAsync), không phát hiện được trường hợp 2 dòng biến thể MỚI
+        // trong CÙNG một request có SKU trùng nhau -> DbUpdateException (unique
+        // index) văng thẳng ra ngoài thành lỗi 500 thô cho Admin. Kiểm tra trùng
+        // lặp ngay trong payload trước khi chạm DB.
+        var duplicateSkuInRequest = request.Variants
+            .Select(v => v.Sku?.Trim().ToLowerInvariant())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .GroupBy(s => s)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateSkuInRequest != null)
+            throw new CatalogException(400, $"Mã SKU '{duplicateSkuInRequest.Key}' bị trùng lặp trong danh sách biến thể.");
+
+        foreach (var v in request.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(v.VariantName))
+                throw new CatalogException(400, "Tên biến thể không được để trống.");
+            if (string.IsNullOrWhiteSpace(v.Sku))
+                throw new CatalogException(400, "Mã SKU không được để trống.");
+            if (v.Price < 0)
+                throw new CatalogException(400, "Giá sản phẩm phải lớn hơn hoặc bằng 0.");
+            if (v.StockQuantity < 0)
+                throw new CatalogException(400, "Số lượng tồn kho phải lớn hơn hoặc bằng 0.");
+
+            var skuTrimmed = v.Sku.Trim();
+            if (await _productRepository.ExistsBySkuAsync(skuTrimmed))
+                throw new CatalogException(400, "Mã SKU đã tồn tại trong hệ thống.");
+        }
+
+        var status = string.IsNullOrWhiteSpace(request.Status) ? "Active" : request.Status.Trim();
+        if (!ValidProductStatuses.Contains(status))
+            throw new CatalogException(400, "Trạng thái sản phẩm không hợp lệ. Chỉ chấp nhận 'Active' hoặc 'Inactive'.");
+
+        var product = new Product
+        {
+            Name = request.Name.Trim(),
+            Description = request.Description,
+            CategoryId = request.CategoryId,
+            BrandId = request.BrandId,
+            Status = status,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _productRepository.AddAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        var variantEntities = request.Variants.Select(v => new ProductVariant
+        {
+            ProductId = product.Id,
+            VariantName = v.VariantName.Trim(),
+            Sku = v.Sku.Trim(),
+            Price = v.Price,
+            StockQuantity = v.StockQuantity,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
+
+        await _variantRepository.AddRangeAsync(variantEntities);
+
+        if (request.Images != null && request.Images.Count > 0)
+        {
+            var imageEntities = request.Images.Select(img => new ProductImage
+            {
+                ProductId = product.Id,
+                ImageUrl = img.ImageUrl.Trim(),
+                IsPrimary = img.IsPrimary
+            }).ToList();
+
+            await _imageRepository.AddRangeAsync(imageEntities);
+        }
+
+        await _productRepository.SaveChangesAsync();
+
+        var createdProduct = await _productRepository.GetWithDetailsAsync(product.Id, includeInactive: true);
+        return MapToProductResponse(createdProduct!);
+    }
+
+    public async Task<ProductResponse> UpdateAsync(int id, UpdateProductRequest request)
+    {
+        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive: true);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Vui lòng nhập tên sản phẩm.");
+
+        var category = await _categoryRepository.GetByIdAsync(request.CategoryId);
+        if (category == null || category.IsActive != true)
+            throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
+
+        var brand = await _brandRepository.GetByIdAsync(request.BrandId);
+        if (brand == null || brand.IsActive != true)
+            throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
+
+        if (request.Variants == null || request.Variants.Count == 0)
+            throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
+
+        // FIX (bug report #3): cùng lý do như CreateAsync — chặn SKU trùng lặp
+        // NGAY TRONG payload (bao gồm cả các dòng chỉnh sửa lẫn dòng mới thêm)
+        // trước khi kiểm tra với DB, để trả lỗi 400 rõ ràng thay vì 500 thô.
+        var duplicateSkuInRequest = request.Variants
+            .Select(v => v.Sku?.Trim().ToLowerInvariant())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .GroupBy(s => s)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateSkuInRequest != null)
+            throw new CatalogException(400, $"Mã SKU '{duplicateSkuInRequest.Key}' bị trùng lặp trong danh sách biến thể.");
+
+        foreach (var v in request.Variants)
+        {
+            if (string.IsNullOrWhiteSpace(v.VariantName))
+                throw new CatalogException(400, "Tên biến thể không được để trống.");
+            if (string.IsNullOrWhiteSpace(v.Sku))
+                throw new CatalogException(400, "Mã SKU không được để trống.");
+            if (v.Price < 0)
+                throw new CatalogException(400, "Giá sản phẩm phải lớn hơn hoặc bằng 0.");
+            if (v.StockQuantity < 0)
+                throw new CatalogException(400, "Số lượng tồn kho phải lớn hơn hoặc bằng 0.");
+
+            var skuTrimmed = v.Sku.Trim();
+            if (await _productRepository.ExistsBySkuAsync(skuTrimmed, excludeVariantId: v.Id))
+                throw new CatalogException(400, "Mã SKU đã tồn tại trong hệ thống.");
+        }
+
+        product.Name = request.Name.Trim();
+        product.Description = request.Description;
+        product.CategoryId = request.CategoryId;
+        product.BrandId = request.BrandId;
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var status = request.Status.Trim();
+            if (!ValidProductStatuses.Contains(status))
+                throw new CatalogException(400, "Trạng thái sản phẩm không hợp lệ. Chỉ chấp nhận 'Active' hoặc 'Inactive'.");
+            product.Status = status;
+        }
+
+        var existingVariants = product.ProductVariants.ToList();
+        var requestVariantIds = request.Variants.Where(v => v.Id.HasValue).Select(v => v.Id!.Value).ToHashSet();
+
+        var candidatesToRemove = existingVariants.Where(v => !requestVariantIds.Contains(v.Id)).ToList();
+        var toRemoveVariants = new List<ProductVariant>();
+        foreach (var variant in candidatesToRemove)
+        {
+            var hasOrders = await _variantRepository.HasOrdersAsync(variant.Id);
+            var hasCartItems = await _variantRepository.HasCartItemsAsync(variant.Id);
+
+            if (hasOrders || hasCartItems)
+            {
+                variant.StockQuantity = 0;
+                await _variantRepository.UpdateAsync(variant);
+            }
+            else
+            {
+                toRemoveVariants.Add(variant);
+            }
+        }
+
+        if (toRemoveVariants.Count > 0)
+        {
+            await _variantRepository.DeleteRangeAsync(toRemoveVariants);
+        }
+
+        foreach (var vDto in request.Variants)
+        {
+            if (vDto.Id.HasValue)
+            {
+                var existing = existingVariants.FirstOrDefault(x => x.Id == vDto.Id.Value);
+                if (existing != null)
+                {
+                    existing.VariantName = vDto.VariantName.Trim();
+                    existing.Sku = vDto.Sku.Trim();
+                    existing.Price = vDto.Price;
+                    existing.StockQuantity = vDto.StockQuantity;
+                    await _variantRepository.UpdateAsync(existing);
+                }
+            }
+            else
+            {
+                var newVar = new ProductVariant
+                {
+                    ProductId = product.Id,
+                    VariantName = vDto.VariantName.Trim(),
+                    Sku = vDto.Sku.Trim(),
+                    Price = vDto.Price,
+                    StockQuantity = vDto.StockQuantity,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _variantRepository.AddAsync(newVar);
+            }
+        }
+
+        var existingImages = product.ProductImages.ToList();
+        var requestImageIds = (request.Images ?? new List<UpdateProductImageDto>())
+            .Where(img => img.Id.HasValue).Select(img => img.Id!.Value).ToHashSet();
+
+        var toRemoveImages = existingImages.Where(img => !requestImageIds.Contains(img.Id)).ToList();
+        if (toRemoveImages.Count > 0)
+        {
+            await _imageRepository.DeleteRangeAsync(toRemoveImages);
+        }
+
+        if (request.Images != null)
+        {
+            foreach (var imgDto in request.Images)
+            {
+                if (imgDto.Id.HasValue)
+                {
+                    var existingImg = existingImages.FirstOrDefault(x => x.Id == imgDto.Id.Value);
+                    if (existingImg != null)
+                    {
+                        existingImg.ImageUrl = imgDto.ImageUrl.Trim();
+                        existingImg.IsPrimary = imgDto.IsPrimary;
+                        await _imageRepository.UpdateAsync(existingImg);
+                    }
+                }
+                else
+                {
+                    var newImg = new ProductImage
+                    {
+                        ProductId = product.Id,
+                        ImageUrl = imgDto.ImageUrl.Trim(),
+                        IsPrimary = imgDto.IsPrimary
+                    };
+                    await _imageRepository.AddAsync(newImg);
+                }
+            }
+        }
+
+        await _productRepository.UpdateAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        var updatedProduct = await _productRepository.GetWithDetailsAsync(id, includeInactive: true);
+        return MapToProductResponse(updatedProduct!);
+    }
+
+    public async Task<string> DeleteAsync(int id)
+    {
+        var product = await _productRepository.GetByIdAsync(id, includeInactive: true);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        var hasOrders = await _productRepository.HasOrdersAsync(id);
+        product.Status = "Inactive";
+        await _productRepository.UpdateAsync(product);
+        await _productRepository.SaveChangesAsync();
+
+        if (hasOrders)
+        {
+            return "Không thể xoá sản phẩm đã phát sinh đơn hàng, chỉ có thể ẩn.";
+        }
+
+        return "Đã chuyển sản phẩm sang trạng thái ẩn.";
+    }
+
+    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false)
+    {
+        if (filter.MinPrice.HasValue && filter.MaxPrice.HasValue && filter.MinPrice > filter.MaxPrice)
+            throw new CatalogException(400, "Khoảng giá không hợp lệ.");
+
+        return await _productRepository.SearchAsync(filter, includeInactive);
+    }
+
+    public async Task<ProductDetailResponse> GetDetailAsync(int id, bool includeInactive = false)
+    {
+        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+
+        if (!includeInactive && product.Status != "Active")
+            throw new CatalogException(400, "Sản phẩm hiện không còn kinh doanh.");
+
+        var avgRating = await _reviewRepository.GetAverageRatingAsync(id);
+
+        var totalReviewCount = await _reviewRepository.GetByProductIdCountAsync(id);
+        var latestReviews = await _reviewRepository.GetByProductIdAsync(id, page: 1, pageSize: DetailReviewPageSize);
+
+        var approvedReviews = latestReviews
+            .Select(r => new ApprovedReviewSummaryResponse(
+                r.Id,
+                r.User.FullName,
+                r.Rating,
+                r.Comment,
+                r.CreatedAt
+            ))
+            .ToList();
+
+        return new ProductDetailResponse(
+            product.Id,
+            product.Name,
+            product.Description,
+            product.CategoryId,
+            product.Category.Name,
+            product.BrandId,
+            product.Brand.Name,
+            product.Status,
+            product.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
+            product.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            Math.Round(avgRating, 1),
+            totalReviewCount,
+            approvedReviews
+        );
+    }
+
+    private static ProductResponse MapToProductResponse(Product p)
+    {
+        return new ProductResponse(
+            p.Id,
+            p.Name,
+            p.Description,
+            p.CategoryId,
+            p.Category.Name,
+            p.BrandId,
+            p.Brand.Name,
+            p.Status,
+            p.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
+            p.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            p.CreatedAt
+        );
+    }
+}using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public sealed class CategoryService : ICategoryService
+{
+    private readonly ICategoryRepository _categoryRepository;
+
+    public CategoryService(ICategoryRepository categoryRepository)
+    {
+        _categoryRepository = categoryRepository;
+    }
+
+    public async Task<CategoryResponse> CreateAsync(CreateCategoryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Tên danh mục không được để trống.");
+
+        var trimmedName = request.Name.Trim();
+
+        if (await _categoryRepository.ExistsByNameAsync(trimmedName, request.ParentId))
+            throw new CatalogException(400, "Tên danh mục/thương hiệu đã tồn tại.");
+
+        if (request.ParentId.HasValue)
+        {
+            var parent = await _categoryRepository.GetByIdAsync(request.ParentId.Value);
+            if (parent == null || parent.IsActive != true)
+                throw new CatalogException(400, "Danh mục cha không tồn tại hoặc đã bị ẩn.");
+        }
+
+        var category = new Category
+        {
+            Name = trimmedName,
+            ParentId = request.ParentId,
+            IsActive = true
+        };
+
+        await _categoryRepository.AddAsync(category);
+        await _categoryRepository.SaveChangesAsync();
+
+        var created = await _categoryRepository.GetByIdAsync(category.Id);
+        return MapToResponse(created!);
+    }
+
+    public async Task<CategoryResponse> UpdateAsync(int id, UpdateCategoryRequest request)
+    {
+        var category = await _categoryRepository.GetByIdAsync(id);
+        if (category == null)
+            throw new CatalogException(404, "Danh mục không tồn tại.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Tên danh mục không được để trống.");
+
+        var trimmedName = request.Name.Trim();
+
+        if (request.ParentId.HasValue && request.ParentId.Value == id)
+            throw new CatalogException(400, "Danh mục cha không thể là chính nó.");
+
+        // FIX: chặn vòng lặp nhiều cấp (A -> B -> C -> A). Trước đây chỉ kiểm tra
+        // ParentId trùng chính Id (vòng lặp 1 cấp), không phát hiện được trường hợp
+        // gán một danh mục CON/CHÁU của chính nó làm cha, khiến cây danh mục bị đứt
+        // gãy logic phân cấp (breadcrumb, lọc sản phẩm theo cây category sẽ sai).
+        if (request.ParentId.HasValue &&
+            await IsDescendantOfAsync(request.ParentId.Value, id))
+        {
+            throw new CatalogException(400,
+                "Không thể chọn danh mục con của chính nó làm danh mục cha (sẽ tạo vòng lặp).");
+        }
+
+        if (await _categoryRepository.ExistsByNameAsync(trimmedName, request.ParentId, excludeId: id))
+            throw new CatalogException(400, "Tên danh mục/thương hiệu đã tồn tại.");
+
+        if (request.ParentId.HasValue)
+        {
+            var parent = await _categoryRepository.GetByIdAsync(request.ParentId.Value);
+            if (parent == null || parent.IsActive != true)
+                throw new CatalogException(400, "Danh mục cha không tồn tại hoặc đã bị ẩn.");
+        }
+
+        category.Name = trimmedName;
+        category.ParentId = request.ParentId;
+
+        await _categoryRepository.UpdateAsync(category);
+        await _categoryRepository.SaveChangesAsync();
+
+        var updated = await _categoryRepository.GetByIdAsync(id);
+        return MapToResponse(updated!);
+    }
+
+    public async Task<string> DeleteAsync(int id)
+    {
+        var category = await _categoryRepository.GetByIdAsync(id);
+        if (category == null)
+            throw new CatalogException(404, "Danh mục không tồn tại.");
+
+        // FIX: trước đây category.IsActive luôn bị set false ngay cả khi đang có sản
+        // phẩm Active gắn với nó, khiến toàn bộ sản phẩm đó "biến mất" âm thầm khỏi
+        // trang khách hàng (ProductRepository.SearchAsync lọc theo Category.IsActive).
+        // Giờ chặn hẳn thao tác ẩn nếu còn sản phẩm đang kinh doanh, buộc Admin phải
+        // chuyển sản phẩm sang danh mục khác trước.
+        var hasActiveProducts = await _categoryRepository.HasActiveProductsAsync(id);
+        if (hasActiveProducts)
+        {
+            throw new CatalogException(400,
+                "Không thể ẩn danh mục đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang danh mục khác trước khi ẩn.");
+        }
+
+        category.IsActive = false;
+        await _categoryRepository.UpdateAsync(category);
+        await _categoryRepository.SaveChangesAsync();
+
+        return "Đã ngừng sử dụng danh mục thành công.";
+    }
+
+    public async Task<IEnumerable<CategoryResponse>> GetAllAsync(bool includeInactive = false)
+    {
+        var categories = await _categoryRepository.GetAllAsync(includeInactive);
+        return categories.Select(MapToResponse);
+    }
+
+    public async Task<CategoryResponse?> GetByIdAsync(int id)
+    {
+        var category = await _categoryRepository.GetByIdAsync(id);
+        if (category == null) return null;
+        return MapToResponse(category);
+    }
+
+    // FIX: đi ngược từ candidateParentId lên tới gốc (theo ParentId), nếu gặp lại
+    // ancestorId (= category đang sửa) thì nghĩa là candidateParentId đang nằm trong
+    // nhánh con/cháu của ancestorId -> gán làm cha sẽ tạo vòng lặp. `visited` chỉ để
+    // phòng hờ dữ liệu cũ trong DB đã lỡ bị vòng lặp, tránh loop vô hạn.
+    private async Task<bool> IsDescendantOfAsync(int candidateParentId, int ancestorId)
+    {
+        var allCategories = await _categoryRepository.GetAllAsync(includeInactive: true);
+        var byId = allCategories.ToDictionary(c => c.Id);
+
+        var current = candidateParentId;
+        var visited = new HashSet<int>();
+
+        while (byId.TryGetValue(current, out var node))
+        {
+            if (node.Id == ancestorId) return true;
+            if (!node.ParentId.HasValue) break;
+            if (!visited.Add(node.Id)) break;
+            current = node.ParentId.Value;
+        }
+
+        return false;
+    }
+
+    private static CategoryResponse MapToResponse(Category c)
+    {
+        return new CategoryResponse(
+            c.Id,
+            c.Name,
+            c.ParentId,
+            c.Parent?.Name,
+            c.IsActive ?? false
+        );
+    }
+}using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public sealed class BrandService : IBrandService
+{
+    private readonly IBrandRepository _brandRepository;
+
+    public BrandService(IBrandRepository brandRepository)
+    {
+        _brandRepository = brandRepository;
+    }
+
+    public async Task<BrandResponse> CreateAsync(CreateBrandRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Tên thương hiệu không được để trống.");
+
+        var trimmedName = request.Name.Trim();
+
+        if (await _brandRepository.ExistsByNameAsync(trimmedName))
+            throw new CatalogException(400, "Tên danh mục/thương hiệu đã tồn tại.");
+
+        var brand = new Brand
+        {
+            Name = trimmedName,
+            LogoUrl = string.IsNullOrWhiteSpace(request.LogoUrl) ? null : request.LogoUrl.Trim(),
+            IsActive = true
+        };
+
+        await _brandRepository.AddAsync(brand);
+        await _brandRepository.SaveChangesAsync();
+
+        return MapToResponse(brand);
+    }
+
+    public async Task<BrandResponse> UpdateAsync(int id, UpdateBrandRequest request)
+    {
+        var brand = await _brandRepository.GetByIdAsync(id);
+        if (brand == null)
+            throw new CatalogException(404, "Thương hiệu không tồn tại.");
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new CatalogException(400, "Tên thương hiệu không được để trống.");
+
+        var trimmedName = request.Name.Trim();
+
+        if (await _brandRepository.ExistsByNameAsync(trimmedName, excludeId: id))
+            throw new CatalogException(400, "Tên danh mục/thương hiệu đã tồn tại.");
+
+        brand.Name = trimmedName;
+        brand.LogoUrl = string.IsNullOrWhiteSpace(request.LogoUrl) ? null : request.LogoUrl.Trim();
+
+        await _brandRepository.UpdateAsync(brand);
+        await _brandRepository.SaveChangesAsync();
+
+        return MapToResponse(brand);
+    }
+
+    public async Task<string> DeleteAsync(int id)
+    {
+        var brand = await _brandRepository.GetByIdAsync(id);
+        if (brand == null)
+            throw new CatalogException(404, "Thương hiệu không tồn tại.");
+
+        // FIX: tương tự CategoryService.DeleteAsync — trước đây brand.IsActive luôn bị
+        // set false kể cả khi đang có sản phẩm Active thuộc thương hiệu này, khiến sản
+        // phẩm biến mất âm thầm khỏi trang khách hàng. Giờ chặn hẳn nếu còn sản phẩm
+        // đang kinh doanh.
+        var hasActiveProducts = await _brandRepository.HasActiveProductsAsync(id);
+        if (hasActiveProducts)
+        {
+            throw new CatalogException(400,
+                "Không thể ẩn thương hiệu đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang thương hiệu khác trước khi ẩn.");
+        }
+
+        brand.IsActive = false;
+        await _brandRepository.UpdateAsync(brand);
+        await _brandRepository.SaveChangesAsync();
+
+        return "Đã ngừng sử dụng thương hiệu thành công.";
+    }
+
+    public async Task<IEnumerable<BrandResponse>> GetAllAsync(bool includeInactive = false)
+    {
+        var brands = await _brandRepository.GetAllAsync(includeInactive);
+        return brands.Select(MapToResponse);
+    }
+
+    public async Task<BrandResponse?> GetByIdAsync(int id)
+    {
+        var brand = await _brandRepository.GetByIdAsync(id);
+        if (brand == null) return null;
+        return MapToResponse(brand);
+    }
+
+    private static BrandResponse MapToResponse(Brand b)
+    {
+        return new BrandResponse(
+            b.Id,
+            b.Name,
+            b.LogoUrl,
+            b.IsActive ?? false
+        );
+    }
+}using ECommerce.Domain;
+
+namespace ECommerce.Application;
+
+public class ReviewService : IReviewService
+{
+    private const int MaxReviewImages = 5;
+
+    // FIX (bug report #5): giới hạn độ dài Comment để chống spam nội dung khổng lồ.
+    private const int MaxCommentLength = 2000;
+
+    private readonly IReviewRepository _reviewRepository;
+    private readonly IOrderRepository _orderRepository;
+
+    public ReviewService(IReviewRepository reviewRepository, IOrderRepository orderRepository)
+    {
+        _reviewRepository = reviewRepository;
+        _orderRepository = orderRepository;
+    }
+
+    public async Task<ReviewResponse> CreateReviewAsync(int userId, CreateReviewRequest request)
+    {
+        if (request.Rating < 1 || request.Rating > 5)
+            throw new ReviewException(400, "Đánh giá phải từ 1 đến 5 sao.");
+
+        if (!string.IsNullOrEmpty(request.Comment) && request.Comment.Trim().Length > MaxCommentLength)
+            throw new ReviewException(400, $"Nội dung đánh giá không được vượt quá {MaxCommentLength} ký tự.");
+
+        if (request.ImageUrls != null && request.ImageUrls.Count > MaxReviewImages)
+            throw new ReviewException(400, $"Chỉ được tải lên tối đa {MaxReviewImages} hình ảnh cho mỗi đánh giá.");
+
+        var existingReview = await _reviewRepository.GetByOrderItemIdAsync(request.OrderItemId);
+        if (existingReview is not null)
+            throw new ReviewException(400, "Bạn đã đánh giá sản phẩm này rồi.");
+
+        var orderItem = await _orderRepository.GetOrderItemWithDetailsAsync(request.OrderItemId);
+        if (orderItem is null)
+            throw new ReviewException(404, "Đơn hàng không tồn tại.");
+
+        if (orderItem.Order.UserId != userId)
+            throw new ReviewException(403, "Bạn không có quyền đánh giá đơn hàng này.");
+
+        if (orderItem.Order.Status != "Delivered")
+            throw new ReviewException(400, "Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã được giao.");
+
+        if (orderItem.ProductVariant.ProductId != request.ProductId)
+            throw new ReviewException(400, "Sản phẩm không khớp với đơn hàng.");
+
+        var review = new Review
+        {
+            OrderItemId = request.OrderItemId,
+            ProductId = request.ProductId,
+            UserId = userId,
+            Rating = (sbyte)request.Rating,
+            Comment = request.Comment?.Trim(),
+            Status = "Pending",
+            CreatedAt = DateTime.UtcNow,
+            ReviewImages = request.ImageUrls?.Select(url => new ReviewImage
+            {
+                ImageUrl = url
+            }).ToList() ?? new List<ReviewImage>()
+        };
+
+        await _reviewRepository.AddAsync(review);
+        await _reviewRepository.SaveChangesAsync();
+
+        return MapToResponse(review);
+    }
+
+    public async Task<ReviewListResponse> GetProductReviewsAsync(int productId, int page, int pageSize)
+    {
+        var reviews = await _reviewRepository.GetByProductIdAsync(productId, page, pageSize);
+        var totalCount = await _reviewRepository.GetByProductIdCountAsync(productId);
+        var averageRating = await _reviewRepository.GetAverageRatingAsync(productId);
+
+        return new ReviewListResponse(
+            reviews.Select(MapToResponse).ToList(),
+            totalCount,
+            page,
+            pageSize,
+            averageRating
+        );
+    }
+
+    public async Task<ReviewListResponse> GetPendingReviewsAsync(int page, int pageSize)
+    {
+        var reviews = await _reviewRepository.GetPendingReviewsAsync(page, pageSize);
+        var totalCount = await _reviewRepository.GetPendingReviewsCountAsync();
+
+        return new ReviewListResponse(
+            reviews.Select(MapToResponse).ToList(),
+            totalCount,
+            page,
+            pageSize,
+            0
+        );
+    }
+
+    public async Task<ReviewResponse> ApproveReviewAsync(int reviewId)
+    {
+        var review = await _reviewRepository.GetByIdAsync(reviewId)
+            ?? throw new ReviewException(404, "Đánh giá không tồn tại.");
+
+        if (review.Status != "Pending")
+            throw new ReviewException(400, "Đánh giá đã được xử lý.");
+
+        review.Status = "Approved";
+        await _reviewRepository.SaveChangesAsync();
+
+        return MapToResponse(review);
+    }
+
+    public async Task<ReviewResponse> RejectReviewAsync(int reviewId, string? reason)
+    {
+        var review = await _reviewRepository.GetByIdAsync(reviewId)
+            ?? throw new ReviewException(404, "Đánh giá không tồn tại.");
+
+        if (review.Status != "Pending")
+            throw new ReviewException(400, "Đánh giá đã được xử lý.");
+
+        review.Status = "Rejected";
+        review.RejectReason = reason;
+        await _reviewRepository.SaveChangesAsync();
+
+        return MapToResponse(review);
+    }
+
+    private static ReviewResponse MapToResponse(Review review)
+    {
+        return new ReviewResponse(
+            review.Id,
+            review.ProductId,
+            review.User.FullName,
+            review.Rating,
+            review.Comment,
+            review.ReviewImages.Select(i => i.ImageUrl).ToList(),
+            review.Status,
+            review.RejectReason,
+            review.CreatedAt
+        );
+    }
+}using ECommerce.Application;
+using ECommerce.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace ECommerce.Infrastructure.Repositories;
+
+public class OrderRepository : IOrderRepository
+{
+    private readonly Data.AppDbContext _context;
+
+    public OrderRepository(Data.AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Order?> GetByIdAsync(int id)
+    {
+        return await _context.Orders.FindAsync(id);
+    }
+
+    public async Task<Order?> GetByIdWithDetailsAsync(int id)
+    {
+        return await _context.Orders
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ProductVariant)
+                    .ThenInclude(v => v.Product)
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.Review)
+            .Include(o => o.Address)
+            .Include(o => o.Payment)
+            .Include(o => o.OrderStatusLogs)
+            .Include(o => o.User)
+            .FirstOrDefaultAsync(o => o.Id == id);
+    }
+
+    /// <summary>
+    /// SECURITY FIX (Review IDOR): trước đây ReviewService gọi nhầm GetByIdAsync(orderItemId)
+    /// -- một hàm tìm theo Order.Id -- để tra cứu OrderItem, nên không có cách nào xác minh
+    /// review có thuộc đúng đơn hàng/đúng người dùng/đúng trạng thái Delivered hay không.
+    /// Hàm này trả về đúng OrderItem, kèm Order (để check UserId/Status) và ProductVariant
+    /// (để đối chiếu ProductId client gửi lên) trong một lần truy vấn.
+    /// </summary>
+    public async Task<OrderItem?> GetOrderItemWithDetailsAsync(int orderItemId)
+    {
+        return await _context.OrderItems
+            .Include(oi => oi.Order)
+            .Include(oi => oi.ProductVariant)
+            .FirstOrDefaultAsync(oi => oi.Id == orderItemId);
+    }
+
+    public async Task<List<Order>> GetUserOrdersAsync(int userId, int page, int pageSize)
+    {
+        return await _context.Orders
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ProductVariant)
+                    .ThenInclude(v => v.Product)
+            .Where(o => o.UserId == userId)
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetUserOrdersCountAsync(int userId)
+    {
+        return await _context.Orders.CountAsync(o => o.UserId == userId);
+    }
+
+    public async Task<List<Order>> GetAllOrdersAsync(int page, int pageSize, string? status)
+    {
+        var query = _context.Orders
+            .Include(o => o.OrderItems)
+                .ThenInclude(i => i.ProductVariant)
+                    .ThenInclude(v => v.Product)
+            .Include(o => o.User)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(o => o.Status == status);
+
+        return await query
+            .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetAllOrdersCountAsync(string? status)
+    {
+        var query = _context.Orders.AsQueryable();
+        if (!string.IsNullOrEmpty(status))
+            query = query.Where(o => o.Status == status);
+        return await query.CountAsync();
+    }
+
+    public async Task AddAsync(Order order)
+    {
+        await _context.Orders.AddAsync(order);
+    }
+
+    public async Task SaveChangesAsync()
+    {
+        await _context.SaveChangesAsync();
+    }
+}namespace ECommerce.Application;
+
+public sealed record CreateCategoryRequest(string? Name, int? ParentId);
+
+public sealed record UpdateCategoryRequest(string? Name, int? ParentId);
+
+public sealed record CategoryResponse(int Id, string Name, int? ParentId, string? ParentName, bool IsActive);
+
+public class CatalogException : Exception
+{
+    public CatalogException(int statusCode, string message) : base(message) => StatusCode = statusCode;
+    public int StatusCode { get; }
+}
+namespace ECommerce.Application;
+
+public sealed record CreateBrandRequest(string? Name, string? LogoUrl);
+
+public sealed record UpdateBrandRequest(string? Name, string? LogoUrl);
+
+public sealed record BrandResponse(int Id, string Name, string? LogoUrl, bool IsActive);
+namespace ECommerce.Application;
+
+public sealed record UserProfileResponse(
+    int Id,
+    string FullName,
+    string Email,
+    string? Phone,
+    string Role,
+    bool IsActive,
+    DateTime CreatedAt
+);
+
+public sealed record UpdateUserProfileRequest(
+    string? FullName,
+    string? Phone
+);
+
+public sealed record AddAddressRequest(
+    string RecipientName,
+    string Phone,
+    string DetailAddress,
+    string Ward,
+    string District,
+    string Province,
+    bool IsDefault
+);
+
+public sealed record UpdateAddressRequest(
+    string RecipientName,
+    string Phone,
+    string DetailAddress,
+    string Ward,
+    string District,
+    string Province,
+    bool IsDefault
+);
+
+public sealed record UserListResponse(
+    List<UserProfileResponse> Users,
+    int TotalCount,
+    int Page,
+    int PageSize
+);
+
+public sealed class UserException : Exception
+{
+    public UserException(int statusCode, string message) : base(message) => StatusCode = statusCode;
+    public int StatusCode { get; }
+}
+namespace ECommerce.Application;
+
+public sealed record CreateProductVariantDto(
+    string VariantName,
+    string Sku,
+    decimal Price,
+    int StockQuantity
+);
+
+public sealed record UpdateProductVariantDto(
+    int? Id,
+    string VariantName,
+    string Sku,
+    decimal Price,
+    int StockQuantity
+);
+
+public sealed record ProductVariantResponse(
+    int Id,
+    string VariantName,
+    string Sku,
+    decimal Price,
+    int StockQuantity
+);
+
+public sealed record CreateProductImageDto(
+    string ImageUrl,
+    bool IsPrimary
+);
+
+public sealed record UpdateProductImageDto(
+    int? Id,
+    string ImageUrl,
+    bool IsPrimary
+);
+
+public sealed record ProductImageResponse(
+    int Id,
+    string ImageUrl,
+    bool IsPrimary
+);
+
+public sealed record CreateProductRequest(
+    string? Name,
+    string? Description,
+    int CategoryId,
+    int BrandId,
+    List<CreateProductVariantDto>? Variants,
+    List<CreateProductImageDto>? Images,
+    string? Status
+);
+
+public sealed record UpdateProductRequest(
+    string? Name,
+    string? Description,
+    int CategoryId,
+    int BrandId,
+    List<UpdateProductVariantDto>? Variants,
+    List<UpdateProductImageDto>? Images,
+    string? Status
+);
+
+public sealed record ProductResponse(
+    int Id,
+    string Name,
+    string? Description,
+    int CategoryId,
+    string CategoryName,
+    int BrandId,
+    string BrandName,
+    string Status,
+    List<ProductVariantResponse> Variants,
+    List<ProductImageResponse> Images,
+    DateTime CreatedAt
+);
+
+public sealed record ProductFilterParams(
+    string? Keyword = null,
+    int? CategoryId = null,
+    int? BrandId = null,
+    decimal? MinPrice = null,
+    decimal? MaxPrice = null,
+    string? Sort = null,
+    int Page = 1,
+    int PageSize = 20
+);
+
+public sealed record ProductSummaryResponse(
+    int Id,
+    string Name,
+    string CategoryName,
+    string BrandName,
+    decimal MinPrice,
+    decimal MaxPrice,
+    string? PrimaryImageUrl,
+    string Status
+);
+
+public sealed record PagedResult<T>(
+    List<T> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
+);
+
+public sealed record ProductDetailResponse(
+    int Id,
+    string Name,
+    string? Description,
+    int CategoryId,
+    string CategoryName,
+    int BrandId,
+    string BrandName,
+    string Status,
+    List<ProductVariantResponse> Variants,
+    List<ProductImageResponse> Images,
+    double AvgRating,
+    // FIX: tổng số đánh giá đã duyệt (không giới hạn theo trang), tách riêng khỏi
+    // Reviews (chỉ chứa một trang review mới nhất) để FE hiển thị đúng số lượng
+    // thật thay vì đếm nhầm theo độ dài mảng đã bị giới hạn.
+    int ReviewCount,
+    List<ApprovedReviewSummaryResponse> Reviews
+);
+
+public sealed record ApprovedReviewSummaryResponse(
+    int Id,
+    string UserName,
+    int Rating,
+    string? Comment,
+    DateTime CreatedAt
+);

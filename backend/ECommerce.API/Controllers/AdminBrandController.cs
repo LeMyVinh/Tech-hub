@@ -1,6 +1,7 @@
 using ECommerce.Application;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.API.Controllers;
 
@@ -28,6 +29,11 @@ public sealed class AdminBrandController : ControllerBase
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
         }
+        catch (DbUpdateException)
+        {
+            // FIX (bug report #11): race window giữa ExistsByNameAsync và insert.
+            return Conflict(new { message = "Tên thương hiệu vừa được sử dụng bởi một thao tác khác. Vui lòng thử lại." });
+        }
     }
 
     [HttpPut("{id:int}")]
@@ -41,6 +47,10 @@ public sealed class AdminBrandController : ControllerBase
         catch (CatalogException ex)
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { message = "Tên thương hiệu vừa được sử dụng bởi một thao tác khác. Vui lòng thử lại." });
         }
     }
 
