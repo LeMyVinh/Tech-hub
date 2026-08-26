@@ -93,6 +93,15 @@
   border-radius: var(--radius-md);
   padding: 1rem 1.15rem;
   background: var(--color-surface);
+  transition: all 0.15s;
+}
+
+// SOFT DELETE: đánh giá đã xóa mềm hiển thị mờ + nghiêng, giống pattern
+// `tr.deleted` ở trang Quản lý Người dùng/Thương hiệu/Danh mục/Sản phẩm.
+.review-card.deleted {
+  opacity: 0.55;
+  font-style: italic;
+  background: var(--color-surface-hover);
 }
 
 .review-card-header {
@@ -100,11 +109,19 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .reviewer-block {
   .reviewer-name { font-weight: 700; color: var(--color-text); font-size: 0.9rem; }
   .product-id { color: var(--color-text-muted); font-size: 0.8rem; margin-left: 0.3rem; }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .stars span {
@@ -113,11 +130,36 @@
   &.filled { color: #f59e0b; }
 }
 
+.status-pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 100px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+
+  &.approved { background: var(--color-success-light); color: var(--color-success); }
+  &.rejected { background: var(--color-danger-light); color: var(--color-danger); }
+  &.pending { background: var(--color-warning-light); color: var(--color-warning); }
+}
+
+.deleted-pill {
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+}
+
 .review-comment {
   color: var(--color-text-secondary);
   font-size: 0.88rem;
   line-height: 1.55;
   margin: 0.4rem 0;
+}
+
+.reject-reason {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  margin: 0.3rem 0;
 }
 
 .review-images {
@@ -140,9 +182,16 @@
   margin-bottom: 0.65rem;
 }
 
+.deleted-date {
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-left: 0.25rem;
+}
+
 .review-actions {
   display: flex;
   gap: 0.6rem;
+  flex-wrap: wrap;
 
   button {
     display: flex;
@@ -171,6 +220,20 @@
     background: var(--color-danger-light);
     color: var(--color-danger);
     &:hover:not(:disabled) { background: var(--color-danger); color: white; }
+  }
+
+  // SOFT DELETE: nút Xóa (làm mờ) và nút Khôi phục, tương tự
+  // .btn-action.delete / .btn-action.edit ở user-manage.component.scss.
+  .btn-delete {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+    &:hover:not(:disabled) { background: var(--color-danger); color: white; }
+  }
+
+  .btn-restore {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    &:hover:not(:disabled) { background: var(--color-primary); color: white; }
   }
 }
 

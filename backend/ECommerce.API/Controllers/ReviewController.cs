@@ -63,6 +63,24 @@ public sealed class ReviewController : ControllerBase
         }
     }
 
+    // ADMIN: danh sách TOÀN BỘ đánh giá (mọi trạng thái, bao gồm cả đã xóa mềm) —
+    // dùng cho trang Kiểm duyệt Đánh giá hiển thị full danh sách kèm chức năng
+    // Xóa/Khôi phục, tương tự GET /admin/users.
+    [HttpGet("admin/reviews")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAllReviews([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            var result = await _reviewService.GetAllReviewsAsync(page, pageSize);
+            return Ok(result);
+        }
+        catch (ReviewException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpPut("admin/reviews/{id:int}/approve")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> ApproveReview(int id)
@@ -85,6 +103,39 @@ public sealed class ReviewController : ControllerBase
         try
         {
             var result = await _reviewService.RejectReviewAsync(id, request.Reason);
+            return Ok(result);
+        }
+        catch (ReviewException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    // SOFT DELETE: xóa mềm đánh giá — bị ẩn khỏi trang sản phẩm và điểm trung
+    // bình, nhưng vẫn còn trong DB để khôi phục.
+    [HttpDelete("admin/reviews/{id:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteReview(int id)
+    {
+        try
+        {
+            var result = await _reviewService.DeleteReviewAsync(id);
+            return Ok(result);
+        }
+        catch (ReviewException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    // RESTORE: khôi phục đánh giá đã bị xóa mềm.
+    [HttpPut("admin/reviews/{id:int}/restore")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RestoreReview(int id)
+    {
+        try
+        {
+            var result = await _reviewService.RestoreReviewAsync(id);
             return Ok(result);
         }
         catch (ReviewException ex)

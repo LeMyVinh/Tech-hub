@@ -488,6 +488,16 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'Pending'")
                 .HasColumnType("enum('Pending','Approved','Rejected')");
 
+            // SOFT DELETE: cho phép Admin "xóa" đánh giá (làm mờ khỏi trang chi tiết
+            // sản phẩm) mà vẫn khôi phục được sau này, giống pattern Brand/Category/
+            // Product/User. Global Query Filter tự động ẩn review đã xóa khỏi mọi
+            // truy vấn mặc định (kể cả GetAverageRatingAsync, GetByProductIdAsync...),
+            // trang quản trị dùng IgnoreQueryFilters() để vẫn thấy được nhằm khôi phục.
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+
             entity.HasOne(d => d.OrderItem).WithOne(p => p.Review)
                 .HasForeignKey<Review>(d => d.OrderItemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)

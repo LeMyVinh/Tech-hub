@@ -39,11 +39,18 @@ public class OrderRepository : IOrderRepository
     /// review có thuộc đúng đơn hàng/đúng người dùng/đúng trạng thái Delivered hay không.
     /// Hàm này trả về đúng OrderItem, kèm Order (để check UserId/Status) và ProductVariant
     /// (để đối chiếu ProductId client gửi lên) trong một lần truy vấn.
+    ///
+    /// FIX (500 - NullReferenceException trong ReviewService.MapToResponse):
+    /// thêm .ThenInclude(o => o.User) vì ReviewService.CreateReviewAsync cần gán
+    /// review.User = orderItem.Order.User sau khi tạo review (entity Review mới
+    /// AddAsync không tự có navigation User). Thiếu include này khiến
+    /// orderItem.Order.User luôn null, dẫn tới NullReferenceException khi map response.
     /// </summary>
     public async Task<OrderItem?> GetOrderItemWithDetailsAsync(int orderItemId)
     {
         return await _context.OrderItems
             .Include(oi => oi.Order)
+                .ThenInclude(o => o.User)
             .Include(oi => oi.ProductVariant)
             .FirstOrDefaultAsync(oi => oi.Id == orderItemId);
     }

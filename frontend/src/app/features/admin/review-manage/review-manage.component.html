@@ -21,7 +21,7 @@
 
   <div class="admin-content-box">
     <div class="toolbar">
-      <h3>Đánh giá đang chờ duyệt ({{ reviews()?.totalCount ?? 0 }})</h3>
+      <h3>Danh sách đánh giá ({{ reviews()?.totalCount ?? 0 }})</h3>
     </div>
 
     @if (loading()) {
@@ -29,27 +29,40 @@
     } @else if (reviews()?.reviews?.length === 0) {
       <div class="empty-state">
         <span class="material-icons empty-icon">rate_review</span>
-        <h3 class="empty-title">Không có đánh giá nào đang chờ duyệt</h3>
-        <p class="empty-text">Tất cả đánh giá hiện tại đã được xử lý.</p>
+        <h3 class="empty-title">Chưa có đánh giá nào</h3>
+        <p class="empty-text">Chưa có đánh giá nào được gửi từ khách hàng.</p>
       </div>
     } @else {
       <div class="review-list">
         @for (r of reviews()?.reviews; track r.id) {
-          <div class="review-card">
+          <!-- SOFT DELETE: đánh giá đã bị xóa mềm hiển thị mờ (giống Quản lý Người dùng) -->
+          <div class="review-card" [class.deleted]="r.isDeleted">
             <div class="review-card-header">
               <div class="reviewer-block">
                 <span class="reviewer-name">{{ r.userName }}</span>
                 <span class="product-id">— Sản phẩm #{{ r.productId }}</span>
               </div>
-              <span class="stars">
-                @for (s of getStarArray(r.rating); track $index) {
-                  <span [class.filled]="s === 1">★</span>
+              <div class="header-right">
+                <span class="stars">
+                  @for (s of getStarArray(r.rating); track $index) {
+                    <span [class.filled]="s === 1">★</span>
+                  }
+                </span>
+                <span class="status-pill" [ngClass]="r.status.toLowerCase()">
+                  {{ getStatusLabel(r.status) }}
+                </span>
+                @if (r.isDeleted) {
+                  <span class="status-pill deleted-pill">Đã xóa</span>
                 }
-              </span>
+              </div>
             </div>
 
             @if (r.comment) {
               <p class="review-comment">{{ r.comment }}</p>
+            }
+
+            @if (r.rejectReason) {
+              <p class="reject-reason"><strong>Lý do từ chối:</strong> {{ r.rejectReason }}</p>
             }
 
             @if (r.imageUrls.length > 0) {
@@ -62,15 +75,29 @@
 
             <div class="review-meta">
               <span class="review-date">{{ r.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              @if (r.isDeleted && r.deletedAt) {
+                <span class="deleted-date">· Đã xóa lúc {{ r.deletedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+              }
             </div>
 
             <div class="review-actions">
-              <button class="btn-approve" [disabled]="processingId() === r.id" (click)="approve(r)">
-                <span class="material-icons">check_circle</span> Duyệt
-              </button>
-              <button class="btn-reject" [disabled]="processingId() === r.id" (click)="reject(r)">
-                <span class="material-icons">block</span> Từ chối
-              </button>
+              @if (r.isDeleted) {
+                <button class="btn-restore" [disabled]="processingId() === r.id" (click)="restoreReview(r)">
+                  <span class="material-icons">restore</span> Khôi phục
+                </button>
+              } @else {
+                @if (r.status === 'Pending') {
+                  <button class="btn-approve" [disabled]="processingId() === r.id" (click)="approve(r)">
+                    <span class="material-icons">check_circle</span> Duyệt
+                  </button>
+                  <button class="btn-reject" [disabled]="processingId() === r.id" (click)="reject(r)">
+                    <span class="material-icons">block</span> Từ chối
+                  </button>
+                }
+                <button class="btn-delete" [disabled]="processingId() === r.id" (click)="deleteReview(r)">
+                  <span class="material-icons">delete_forever</span> Xóa
+                </button>
+              }
             </div>
           </div>
         }

@@ -20,6 +20,8 @@ export interface ReviewResponse {
   status: string;
   rejectReason?: string;
   createdAt: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

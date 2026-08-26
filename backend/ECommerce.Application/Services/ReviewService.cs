@@ -96,6 +96,23 @@ public class ReviewService : IReviewService
         );
     }
 
+    // ADMIN: lấy TOÀN BỘ đánh giá (mọi Status, kể cả đã xóa mềm) để trang quản trị
+    // hiển thị đầy đủ — review đã xóa vẫn có mặt trong danh sách (FE làm mờ) thay vì
+    // biến mất hoàn toàn, giống UserService.GetAllUsersAsync.
+    public async Task<ReviewListResponse> GetAllReviewsAsync(int page, int pageSize)
+    {
+        var reviews = await _reviewRepository.GetAllReviewsAsync(page, pageSize);
+        var totalCount = await _reviewRepository.GetAllReviewsCountAsync();
+
+        return new ReviewListResponse(
+            reviews.Select(MapToResponse).ToList(),
+            totalCount,
+            page,
+            pageSize,
+            0
+        );
+    }
+
     public async Task<ReviewResponse> ApproveReviewAsync(int reviewId)
     {
         var review = await _reviewRepository.GetByIdAsync(reviewId)
@@ -125,6 +142,39 @@ public class ReviewService : IReviewService
         return MapToResponse(review);
     }
 
+    // SOFT DELETE: Admin có thể xóa mềm bất kỳ đánh giá nào (Pending/Approved/
+    // Rejected). Đánh giá bị ẩn khỏi trang chi tiết sản phẩm và không tính vào
+    // điểm trung bình (nhờ Global Query Filter), nhưng vẫn còn trong DB để khôi
+    // phục lại sau. Dùng GetByIdIncludingDeletedAsync để tránh trường hợp gọi xóa
+    // 2 lần liên tiếp (review đã xóa sẽ không lọt qua GetByIdAsync thường).
+    public async Task<ReviewResponse> DeleteReviewAsync(int reviewId)
+    {
+        var review = await _reviewRepository.GetByIdIncludingDeletedAsync(reviewId)
+            ?? throw new ReviewException(404, "Đánh giá không tồn tại.");
+
+        if (review.IsDeleted)
+            throw new ReviewException(400, "Đánh giá này đã bị xóa trước đó.");
+
+        await _reviewRepository.SoftDeleteAsync(review);
+
+        return MapToResponse(review);
+    }
+
+    // RESTORE: khôi phục đánh giá đã xóa mềm, hiển thị lại bình thường trên trang
+    // sản phẩm (nếu Status = Approved) và được tính lại vào điểm trung bình.
+    public async Task<ReviewResponse> RestoreReviewAsync(int reviewId)
+    {
+        var review = await _reviewRepository.GetByIdIncludingDeletedAsync(reviewId)
+            ?? throw new ReviewException(404, "Đánh giá không tồn tại.");
+
+        if (!review.IsDeleted)
+            throw new ReviewException(400, "Đánh giá này chưa bị xóa.");
+
+        await _reviewRepository.RestoreAsync(review);
+
+        return MapToResponse(review);
+    }
+
     private static ReviewResponse MapToResponse(Review review)
     {
         return new ReviewResponse(
@@ -136,7 +186,9 @@ public class ReviewService : IReviewService
             review.ReviewImages.Select(i => i.ImageUrl).ToList(),
             review.Status,
             review.RejectReason,
-            review.CreatedAt
+            review.CreatedAt,
+            review.IsDeleted,
+            review.DeletedAt
         );
     }
 }

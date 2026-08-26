@@ -12,6 +12,8 @@ export interface ReviewItem {
   status: string;
   rejectReason?: string;
   createdAt: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface ReviewListResponse {
@@ -35,6 +37,13 @@ export class ReviewService {
     );
   }
 
+  getAllReviews(token: string, page = 1, pageSize = 10): Observable<ReviewListResponse> {
+    return this.http.get<ReviewListResponse>(
+      `${this.apiUrl}/admin/reviews?page=${page}&pageSize=${pageSize}`,
+      { headers: new HttpHeaders({ Authorization: `Bearer ${token}` }) }
+    );
+  }
+
   approveReview(token: string, id: number): Observable<ReviewItem> {
     return this.http.put<ReviewItem>(
       `${this.apiUrl}/admin/reviews/${id}/approve`,
@@ -47,6 +56,20 @@ export class ReviewService {
     return this.http.put<ReviewItem>(
       `${this.apiUrl}/admin/reviews/${id}/reject`,
       { reason },
+      { headers: new HttpHeaders({ Authorization: `Bearer ${token}` }) }
+    );
+  }
+
+  deleteReview(token: string, id: number): Observable<ReviewItem> {
+    return this.http.delete<ReviewItem>(`${this.apiUrl}/admin/reviews/${id}`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    });
+  }
+
+  restoreReview(token: string, id: number): Observable<ReviewItem> {
+    return this.http.put<ReviewItem>(
+      `${this.apiUrl}/admin/reviews/${id}/restore`,
+      {},
       { headers: new HttpHeaders({ Authorization: `Bearer ${token}` }) }
     );
   }
