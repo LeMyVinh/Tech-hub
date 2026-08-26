@@ -13,16 +13,21 @@ public class AddressRepository : IAddressRepository
         _context = context;
     }
 
-    public async Task<Address?> GetByIdAsync(int id)
+    public async Task<Address?> GetByIdAsync(int id, bool includeDeleted = false)
     {
-        return await _context.Addresses.FindAsync(id);
+        var query = _context.Addresses.Where(a => a.Id == id);
+        if (!includeDeleted) query = query.Where(a => !a.IsDeleted);
+        return await query.FirstOrDefaultAsync();
     }
 
-    public async Task<List<Address>> GetByUserIdAsync(int userId)
+    public async Task<List<Address>> GetByUserIdAsync(int userId, bool includeDeleted = false)
     {
-        return await _context.Addresses
-            .Where(a => a.UserId == userId)
-            .OrderByDescending(a => a.IsDefault)
+        var query = _context.Addresses.Where(a => a.UserId == userId);
+        if (!includeDeleted) query = query.Where(a => !a.IsDeleted);
+
+        return await query
+            .OrderBy(a => a.IsDeleted)
+            .ThenByDescending(a => a.IsDefault)
             .ThenByDescending(a => a.CreatedAt)
             .ToListAsync();
     }
@@ -42,14 +47,18 @@ public class AddressRepository : IAddressRepository
     {
         address.IsDeleted = true;
         address.DeletedAt = DateTime.UtcNow;
+        address.IsDefault = false;
         _context.Addresses.Update(address);
         return Task.CompletedTask;
     }
 
-    // FIX: kiểm tra địa chỉ có đang được tham chiếu bởi bất kỳ Order nào không.
-    public async Task<bool> HasOrdersAsync(int addressId)
+    public Task RestoreAsync(Address address)
     {
-        return await _context.Orders.AnyAsync(o => o.AddressId == addressId);
+        address.IsDeleted = false;
+        address.DeletedAt = null;
+        address.IsDefault = false;
+        _context.Addresses.Update(address);
+        return Task.CompletedTask;
     }
 
     public async Task SaveChangesAsync()

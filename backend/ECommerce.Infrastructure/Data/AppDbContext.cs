@@ -105,6 +105,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
             entity.Property(e => e.DetailAddress).HasMaxLength(255);
             entity.Property(e => e.District).HasMaxLength(100);
             entity.Property(e => e.Phone).HasMaxLength(20);
@@ -595,6 +597,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
 
             entity.HasOne(d => d.Product).WithMany(p => p.WishlistItems)
                 .HasForeignKey(d => d.ProductId)

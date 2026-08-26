@@ -12,7 +12,9 @@ public sealed record WishlistItemResponse(
     string? PrimaryImageUrl,
     decimal MinPrice,
     decimal MaxPrice,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsDeleted = false,
+    DateTime? DeletedAt = null
 );
 
 public sealed class WishlistException : Exception

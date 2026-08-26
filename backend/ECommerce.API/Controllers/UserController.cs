@@ -51,12 +51,12 @@ public sealed class UserController : ControllerBase
 
     [HttpGet("users/me/addresses")]
     [Authorize(Roles = "Customer,Admin")]
-    public async Task<IActionResult> GetAddresses()
+    public async Task<IActionResult> GetAddresses([FromQuery] bool includeDeleted = false)
     {
         try
         {
             var userId = GetUserId();
-            var result = await _userService.GetUserAddressesAsync(userId);
+            var result = await _userService.GetUserAddressesAsync(userId, includeDeleted);
             return Ok(result);
         }
         catch (UserException ex)
@@ -106,6 +106,21 @@ public sealed class UserController : ControllerBase
             var userId = GetUserId();
             await _userService.DeleteAddressAsync(userId, id);
             return Ok(new { message = "Đã xóa địa chỉ." });
+        }
+        catch (UserException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("users/me/addresses/{id:int}/restore")]
+    [Authorize(Roles = "Customer,Admin")]
+    public async Task<IActionResult> RestoreAddress(int id)
+    {
+        try
+        {
+            var result = await _userService.RestoreAddressAsync(GetUserId(), id);
+            return Ok(result);
         }
         catch (UserException ex)
         {

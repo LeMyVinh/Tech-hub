@@ -10,6 +10,8 @@ export interface WishlistItem {
   minPrice: number;
   maxPrice: number;
   createdAt: string;
+  isDeleted: boolean;
+  deletedAt: string | null;
 }
 
 export interface WishlistResponse {
@@ -23,8 +25,8 @@ export class WishlistService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getWishlist(token: string): Observable<WishlistResponse> {
-    return this.http.get<WishlistResponse>(this.apiUrl, {
+  getWishlist(token: string, includeDeleted = false): Observable<WishlistResponse> {
+    return this.http.get<WishlistResponse>(`${this.apiUrl}?includeDeleted=${includeDeleted}`, {
       headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
     });
   }
@@ -39,6 +41,12 @@ export class WishlistService {
 
   removeFromWishlist(token: string, productId: number): Observable<WishlistResponse> {
     return this.http.delete<WishlistResponse>(`${this.apiUrl}/${productId}`, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+    });
+  }
+
+  restoreWishlistItem(token: string, productId: number): Observable<WishlistResponse> {
+    return this.http.put<WishlistResponse>(`${this.apiUrl}/${productId}/restore`, {}, {
       headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
     });
   }

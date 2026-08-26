@@ -121,7 +121,7 @@
       } @else {
         <div class="address-grid">
           @for (addr of addresses(); track addr.id) {
-            <div class="address-card" [class.is-default]="addr.isDefault">
+            <div class="address-card" [class.is-default]="addr.isDefault" [class.deleted]="addr.isDeleted">
               @if (addr.isDefault) {
                 <span class="default-ribbon">
                   <span class="material-icons">star</span> Mặc định
@@ -138,17 +138,23 @@
                 {{ addr.detailAddress }}, {{ addr.ward }}, {{ addr.district }}, {{ addr.province }}
               </p>
               <div class="address-actions">
-                @if (!addr.isDefault) {
+                @if (addr.isDeleted) {
+                  <button class="addr-btn restore" (click)="restoreAddress(addr)">
+                    <span class="material-icons">restore</span> Khôi phục
+                  </button>
+                } @else if (!addr.isDefault) {
                   <button class="addr-btn" (click)="setDefault(addr)">
                     <span class="material-icons">star_outline</span> Đặt mặc định
                   </button>
                 }
-                <button class="addr-btn" (click)="openEditAddress(addr)">
-                  <span class="material-icons">edit</span> Sửa
-                </button>
-                <button class="addr-btn danger" (click)="deleteAddress(addr)">
-                  <span class="material-icons">delete_outline</span> Xóa
-                </button>
+                @if (!addr.isDeleted) {
+                  <button class="addr-btn" (click)="openEditAddress(addr)">
+                    <span class="material-icons">edit</span> Sửa
+                  </button>
+                  <button class="addr-btn danger" (click)="deleteAddress(addr)">
+                    <span class="material-icons">delete_outline</span> Xóa
+                  </button>
+                }
               </div>
             </div>
           }

@@ -75,7 +75,9 @@ public sealed record AddressResponse(
     string Ward,
     string District,
     string Province,
-    bool IsDefault = false
+    bool IsDefault = false,
+    bool IsDeleted = false,
+    DateTime? DeletedAt = null
 );
 public sealed record PaymentResponse(
     int Id,

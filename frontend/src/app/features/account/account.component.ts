@@ -97,7 +97,7 @@ export class AccountComponent implements OnInit {
   loadAddresses(): void {
     const token = this.getToken();
     if (!token) return;
-    this.accountService.getAddresses(token).subscribe({
+    this.accountService.getAddresses(token, true).subscribe({
       next: addresses => this.addresses.set(addresses),
       error: () => this.toast.error('Không thể tải danh sách địa chỉ.'),
     });
@@ -129,7 +129,7 @@ export class AccountComponent implements OnInit {
       ward: '',
       district: '',
       province: '',
-      isDefault: this.addresses().length === 0,
+      isDefault: this.addresses().every(address => address.isDeleted),
     };
     this.showAddressModal = true;
   }
@@ -190,13 +190,26 @@ export class AccountComponent implements OnInit {
   deleteAddress(addr: Address): void {
     const token = this.requireToken();
     if (!token) return;
-    if (!confirm(`Xóa địa chỉ "${addr.recipientName}"?`)) return;
+    if (!confirm(`Xóa địa chỉ "${addr.recipientName}"? Bạn có thể khôi phục sau.`)) return;
     this.accountService.deleteAddress(token, addr.id).subscribe({
       next: () => {
-        this.toast.success('Đã xóa địa chỉ.');
+        this.toast.success('Đã xóa mềm địa chỉ.');
         this.loadAddresses();
       },
       error: err => this.toast.error(err.error?.message ?? 'Lỗi xóa địa chỉ.'),
+    });
+  }
+
+  restoreAddress(addr: Address): void {
+    const token = this.requireToken();
+    if (!token) return;
+    if (!confirm(`Khôi phục địa chỉ "${addr.recipientName}"?`)) return;
+    this.accountService.restoreAddress(token, addr.id).subscribe({
+      next: () => {
+        this.toast.success('Đã khôi phục địa chỉ.');
+        this.loadAddresses();
+      },
+      error: err => this.toast.error(err.error?.message ?? 'Lỗi khôi phục địa chỉ.'),
     });
   }
 

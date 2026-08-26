@@ -18,12 +18,12 @@ public sealed class WishlistController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetWishlist()
+    public async Task<IActionResult> GetWishlist([FromQuery] bool includeDeleted = false)
     {
         try
         {
             var userId = GetUserId();
-            var result = await _wishlistService.GetWishlistAsync(userId);
+            var result = await _wishlistService.GetWishlistAsync(userId, includeDeleted);
             return Ok(result);
         }
         catch (WishlistException ex)
@@ -54,6 +54,20 @@ public sealed class WishlistController : ControllerBase
         {
             var userId = GetUserId();
             var result = await _wishlistService.RemoveFromWishlistAsync(userId, productId);
+            return Ok(result);
+        }
+        catch (WishlistException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{productId:int}/restore")]
+    public async Task<IActionResult> RestoreWishlistItem(int productId)
+    {
+        try
+        {
+            var result = await _wishlistService.RestoreWishlistItemAsync(GetUserId(), productId);
             return Ok(result);
         }
         catch (WishlistException ex)

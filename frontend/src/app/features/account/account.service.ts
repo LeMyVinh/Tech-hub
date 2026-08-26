@@ -27,6 +27,8 @@ export interface Address {
   district: string;
   province: string;
   isDefault: boolean;
+  isDeleted: boolean;
+  deletedAt: string | null;
 }
 
 export interface AddAddressRequest {
@@ -67,8 +69,8 @@ export class AccountService {
     return this.http.put<UserProfile>(this.apiUrl, request, { headers: this.headers(token) });
   }
 
-  getAddresses(token: string): Observable<Address[]> {
-    return this.http.get<Address[]>(`${this.apiUrl}/addresses`, { headers: this.headers(token) });
+  getAddresses(token: string, includeDeleted = false): Observable<Address[]> {
+    return this.http.get<Address[]>(`${this.apiUrl}/addresses?includeDeleted=${includeDeleted}`, { headers: this.headers(token) });
   }
 
   addAddress(token: string, request: AddAddressRequest): Observable<Address> {
@@ -81,6 +83,12 @@ export class AccountService {
 
   deleteAddress(token: string, id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/addresses/${id}`, {
+      headers: this.headers(token),
+    });
+  }
+
+  restoreAddress(token: string, id: number): Observable<Address> {
+    return this.http.put<Address>(`${this.apiUrl}/addresses/${id}/restore`, {}, {
       headers: this.headers(token),
     });
   }

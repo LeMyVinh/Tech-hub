@@ -19,9 +19,9 @@ public class WishlistService : IWishlistService
         _productRepository = productRepository;
     }
 
-    public async Task<WishlistResponse> GetWishlistAsync(int userId)
+    public async Task<WishlistResponse> GetWishlistAsync(int userId, bool includeDeleted = false)
     {
-        var items = await _wishlistRepository.GetByUserIdAsync(userId);
+        var items = await _wishlistRepository.GetByUserIdAsync(userId, includeDeleted);
         var responseItems = items.Select(i => new WishlistItemResponse(
             i.Id,
             i.ProductId,
@@ -29,7 +29,9 @@ public class WishlistService : IWishlistService
             i.Product.ProductImages.FirstOrDefault(img => img.IsPrimary)?.ImageUrl,
             i.Product.ProductVariants.Any() ? i.Product.ProductVariants.Min(v => v.Price) : 0,
             i.Product.ProductVariants.Any() ? i.Product.ProductVariants.Max(v => v.Price) : 0,
-            i.CreatedAt
+            i.CreatedAt,
+            i.IsDeleted,
+            i.DeletedAt
         )).ToList();
 
         return new WishlistResponse(0, responseItems);
@@ -43,9 +45,15 @@ public class WishlistService : IWishlistService
         if (product.Status != "Active")
             throw new WishlistException(400, "Sản phẩm hiện không còn kinh doanh.");
 
-        var existing = await _wishlistRepository.GetByUserAndProductAsync(userId, productId);
-        if (existing is not null)
+        var existing = await _wishlistRepository.GetByUserAndProductAsync(userId, productId, includeDeleted: true);
+        if (existing is not null && !existing.IsDeleted)
             throw new WishlistException(400, "Sản phẩm đã có trong danh sách yêu thích.");
+        if (existing is not null)
+        {
+            await _wishlistRepository.RestoreAsync(existing);
+            await _wishlistRepository.SaveChangesAsync();
+            return await GetWishlistAsync(userId);
+        }
 
         var item = new WishlistItem
         {
@@ -78,9 +86,21 @@ public class WishlistService : IWishlistService
         var item = await _wishlistRepository.GetByUserAndProductAsync(userId, productId)
             ?? throw new WishlistException(404, "Sản phẩm không có trong danh sách yêu thích.");
 
-        await _wishlistRepository.RemoveAsync(item);
+        await _wishlistRepository.SoftDeleteAsync(item);
         await _wishlistRepository.SaveChangesAsync();
         return await GetWishlistAsync(userId);
+    }
+
+    public async Task<WishlistResponse> RestoreWishlistItemAsync(int userId, int productId)
+    {
+        var item = await _wishlistRepository.GetByUserAndProductAsync(userId, productId, includeDeleted: true)
+            ?? throw new WishlistException(404, "Sản phẩm không có trong danh sách yêu thích.");
+        if (!item.IsDeleted)
+            throw new WishlistException(400, "Sản phẩm này chưa bị xóa.");
+
+        await _wishlistRepository.RestoreAsync(item);
+        await _wishlistRepository.SaveChangesAsync();
+        return await GetWishlistAsync(userId, includeDeleted: true);
     }
 
     public async Task<CartResponse> MoveToCartAsync(int userId, int productId)
@@ -94,7 +114,7 @@ public class WishlistService : IWishlistService
             throw new WishlistException(400, "Sản phẩm không có biến thể nào.");
 
         await _cartService.AddToCartAsync(userId, new AddToCartRequest(variant.Id, 1));
-        await _wishlistRepository.RemoveAsync(item);
+        await _wishlistRepository.SoftDeleteAsync(item);
         await _wishlistRepository.SaveChangesAsync();
         return await _cartService.GetCartAsync(userId);
     }

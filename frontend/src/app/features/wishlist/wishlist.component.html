@@ -34,7 +34,7 @@
   @if (wishlist() && wishlist()!.items.length > 0) {
     <div class="wishlist-items">
       @for (item of wishlist()!.items; track item.id) {
-        <div class="wishlist-item">
+        <div class="wishlist-item" [class.deleted]="item.isDeleted">
           <div class="item-image" (click)="viewProduct(item.productId)">
             @if (item.primaryImageUrl) {
               <img [src]="item.primaryImageUrl" [alt]="item.productName">
@@ -55,14 +55,21 @@
             </p>
           </div>
           <div class="item-actions">
-            <button class="btn-move-cart" (click)="moveToCart(item)">
-              <span class="material-icons">add_shopping_cart</span>
-              Thêm vào giỏ
-            </button>
-            <button class="btn-remove" (click)="removeFromWishlist(item)">
-              <span class="material-icons">delete</span>
-              Xóa
-            </button>
+            @if (item.isDeleted) {
+              <button class="btn-restore" (click)="restoreWishlistItem(item)">
+                <span class="material-icons">restore</span>
+                Khôi phục
+              </button>
+            } @else {
+              <button class="btn-move-cart" (click)="moveToCart(item)">
+                <span class="material-icons">add_shopping_cart</span>
+                Thêm vào giỏ
+              </button>
+              <button class="btn-remove" (click)="removeFromWishlist(item)">
+                <span class="material-icons">delete</span>
+                Xóa
+              </button>
+            }
           </div>
         </div>
       }

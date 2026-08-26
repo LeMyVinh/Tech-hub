@@ -37,7 +37,7 @@ export class WishlistComponent implements OnInit {
       return;
     }
     this.loading.set(true);
-    this.wishlistService.getWishlist(token).subscribe({
+    this.wishlistService.getWishlist(token, true).subscribe({
       next: (wishlist) => {
         this.wishlist.set(wishlist);
         this.loading.set(false);
@@ -52,13 +52,13 @@ export class WishlistComponent implements OnInit {
   removeFromWishlist(item: WishlistItem): void {
     const token = this.getToken();
     if (!token) return;
-    if (!confirm(`Xóa "${item.productName}" khỏi danh sách yêu thích?`)) return;
+    if (!confirm(`Xóa "${item.productName}" khỏi danh sách yêu thích? Bạn có thể khôi phục sau.`)) return;
     this.loading.set(true);
     this.wishlistService.removeFromWishlist(token, item.productId).subscribe({
       next: (wishlist) => {
         this.wishlist.set(wishlist);
         this.loading.set(false);
-        this.message.set('Đã xóa khỏi danh sách yêu thích.');
+        this.message.set('Đã xóa mềm sản phẩm khỏi danh sách yêu thích.');
       },
       error: (err) => {
         this.error.set(err.error?.message ?? 'Lỗi xóa.');
@@ -67,7 +67,25 @@ export class WishlistComponent implements OnInit {
     });
   }
 
+  restoreWishlistItem(item: WishlistItem): void {
+    const token = this.getToken();
+    if (!token) return;
+    this.loading.set(true);
+    this.wishlistService.restoreWishlistItem(token, item.productId).subscribe({
+      next: wishlist => {
+        this.wishlist.set(wishlist);
+        this.loading.set(false);
+        this.message.set('Đã khôi phục sản phẩm yêu thích.');
+      },
+      error: err => {
+        this.error.set(err.error?.message ?? 'Lỗi khôi phục.');
+        this.loading.set(false);
+      },
+    });
+  }
+
   moveToCart(item: WishlistItem): void {
+    if (item.isDeleted) return;
     const token = this.getToken();
     if (!token) return;
     this.loading.set(true);

@@ -76,9 +76,9 @@ public class UserService : IUserService
         );
     }
 
-    public async Task<List<AddressResponse>> GetUserAddressesAsync(int userId)
+    public async Task<List<AddressResponse>> GetUserAddressesAsync(int userId, bool includeDeleted = false)
     {
-        var addresses = await _addressRepository.GetByUserIdAsync(userId);
+        var addresses = await _addressRepository.GetByUserIdAsync(userId, includeDeleted);
         return addresses.Select(MapToResponse).ToList();
     }
 
@@ -156,15 +156,23 @@ public class UserService : IUserService
         if (address.UserId != userId)
             throw new UserException(403, "Bạn không có quyền xóa địa chỉ này.");
 
-        if (await _addressRepository.HasOrdersAsync(addressId))
-            throw new UserException(400,
-                "Không thể xóa địa chỉ đã được dùng để đặt hàng. Bạn có thể thêm địa chỉ mới thay thế.");
-
-        // FIX: IAddressRepository không có DeleteAsync (hard delete), chỉ có
-        // SoftDeleteAsync. Đổi sang gọi đúng method để build được và giữ đúng
-        // thiết kế soft-delete (đánh dấu IsDeleted/DeletedAt thay vì xóa cứng).
         await _addressRepository.SoftDeleteAsync(address);
         await _addressRepository.SaveChangesAsync();
+    }
+
+    public async Task<AddressResponse> RestoreAddressAsync(int userId, int addressId)
+    {
+        var address = await _addressRepository.GetByIdAsync(addressId, includeDeleted: true)
+            ?? throw new UserException(404, "Địa chỉ không tồn tại.");
+
+        if (address.UserId != userId)
+            throw new UserException(403, "Bạn không có quyền khôi phục địa chỉ này.");
+        if (!address.IsDeleted)
+            throw new UserException(400, "Địa chỉ này chưa bị xóa.");
+
+        await _addressRepository.RestoreAsync(address);
+        await _addressRepository.SaveChangesAsync();
+        return MapToResponse(address);
     }
 
     public async Task SetDefaultAddressAsync(int userId, int addressId)
@@ -292,7 +300,9 @@ public class UserService : IUserService
             address.Ward,
             address.District,
             address.Province,
-            address.IsDefault
+            address.IsDefault,
+            address.IsDeleted,
+            address.DeletedAt
         );
     }
 }
