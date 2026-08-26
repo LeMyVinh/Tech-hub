@@ -17,13 +17,6 @@ public sealed class UserController : ControllerBase
         _userService = userService;
     }
 
-    // FIX (Admin không truy cập được "Tài khoản của tôi"): các endpoint dưới đây
-    // trước đó bị giới hạn [Authorize(Roles = "Customer")], trong khi trang
-    // /account trên frontend chỉ dùng authGuard chung (cho phép mọi user đã đăng
-    // nhập, kể cả Admin). Kết quả là Admin vào được UI nhưng mọi request API đều
-    // trả 403, khiến trang trắng/báo lỗi. Nới quyền cho cả "Customer,Admin" để
-    // Admin cũng quản lý được thông tin cá nhân + địa chỉ của chính họ.
-
     [HttpGet("users/me")]
     [Authorize(Roles = "Customer,Admin")]
     public async Task<IActionResult> GetProfile()
@@ -174,6 +167,41 @@ public sealed class UserController : ControllerBase
         {
             await _userService.UnlockUserAsync(id);
             return Ok(new { message = "Đã mở khóa tài khoản." });
+        }
+        catch (UserException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    // SOFT DELETE: xóa khỏi danh sách quản trị. User bị lọc bởi HasQueryFilter
+    // trong AppDbContext (IsDeleted=true), dữ liệu vẫn giữ nguyên trong DB để
+    // không phá vỡ lịch sử đơn hàng.
+    [HttpDelete("admin/users/{id:int}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        try
+        {
+            await _userService.SoftDeleteUserAsync(id);
+            return Ok(new { message = "Đã xóa người dùng." });
+        }
+        catch (UserException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
+    // RESTORE: khôi phục user đã bị soft delete. Đảo IsDeleted về false để user
+    // hoạt động lại bình thường và xuất hiện trong danh sách quản trị.
+    [HttpPut("admin/users/{id:int}/restore")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RestoreUser(int id)
+    {
+        try
+        {
+            await _userService.RestoreUserAsync(id);
+            return Ok(new { message = "Đã khôi phục người dùng." });
         }
         catch (UserException ex)
         {

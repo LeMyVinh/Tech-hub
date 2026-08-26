@@ -4,7 +4,7 @@ public sealed record CreateCategoryRequest(string? Name, int? ParentId);
 
 public sealed record UpdateCategoryRequest(string? Name, int? ParentId);
 
-public sealed record CategoryResponse(int Id, string Name, int? ParentId, string? ParentName, bool IsActive);
+public sealed record CategoryResponse(int Id, string Name, int? ParentId, string? ParentName, bool IsActive, bool IsDeleted, DateTime? DeletedAt);
 
 public class CatalogException : Exception
 {

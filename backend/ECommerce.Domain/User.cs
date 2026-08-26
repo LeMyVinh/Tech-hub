@@ -17,8 +17,6 @@ public partial class User
 
     public int RoleId { get; set; }
 
-    public bool? IsActive { get; set; }
-
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
@@ -34,6 +32,14 @@ public partial class User
     // EMAIL VERIFICATION: false cho tới khi user bấm link xác thực gửi qua email.
     // Login bị chặn (403) khi cờ này còn false, xem AuthService.LoginAsync.
     public bool EmailVerified { get; set; }
+
+    // SOFT DELETE: true khi tài khoản đã bị Admin xóa (vĩnh viễn, khác với khóa
+    // tạm qua IsActive). User bị lọc khỏi mọi query mặc định qua HasQueryFilter
+    // trong AppDbContext, nhưng dữ liệu vẫn giữ nguyên để không phá vỡ lịch sử
+    // đơn hàng/đánh giá đã liên kết.
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
 
     public virtual ICollection<Address> Addresses { get; set; } = new List<Address>();
 

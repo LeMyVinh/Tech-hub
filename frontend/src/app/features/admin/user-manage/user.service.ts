@@ -8,7 +8,8 @@ export interface AdminUserProfile {
   email: string;
   phone: string | null;
   role: string;
-  isActive: boolean;
+  isDeleted: boolean;
+  deletedAt: string | null;
   createdAt: string;
 }
 
@@ -37,17 +38,17 @@ export class UserManageService {
     });
   }
 
-  lockUser(token: string, id: number): Observable<{ message: string }> {
-    return this.http.put<{ message: string }>(
-      `${this.apiUrl}/${id}/lock`,
-      {},
-      { headers: this.headers(token) }
-    );
+  // SOFT DELETE: đánh dấu IsDeleted=true; user vẫn còn trong DB và hiển thị mờ ở trang admin.
+  deleteUser(token: string, id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`${this.apiUrl}/${id}`, {
+      headers: this.headers(token),
+    });
   }
 
-  unlockUser(token: string, id: number): Observable<{ message: string }> {
+  // RESTORE: đảo ngược soft delete, user hoạt động lại bình thường.
+  restoreUser(token: string, id: number): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(
-      `${this.apiUrl}/${id}/unlock`,
+      `${this.apiUrl}/${id}/restore`,
       {},
       { headers: this.headers(token) }
     );

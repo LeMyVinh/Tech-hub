@@ -125,11 +125,12 @@ public partial class AppDbContext : DbContext
 
             entity.HasIndex(e => e.Name, "Name").IsUnique();
 
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValueSql("'1'");
             entity.Property(e => e.LogoUrl).HasMaxLength(500);
             entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
         modelBuilder.Entity<Cart>(entity =>
@@ -183,6 +184,10 @@ public partial class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValueSql("'1'");
             entity.Property(e => e.Name).HasMaxLength(150);
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
 
             entity.HasOne(d => d.Parent).WithMany(p => p.InverseParent)
                 .HasForeignKey(d => d.ParentId)
@@ -242,7 +247,6 @@ public partial class AppDbContext : DbContext
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
-
             // FIX (đơn hàng bị đổi theo địa chỉ mới): mapping cho các cột snapshot
             // địa chỉ mới thêm vào Order. Các cột này được ghi 1 lần duy nhất khi tạo
             // đơn (OrderService.CreateOrderAsync) và không phụ thuộc vào bảng Address
@@ -385,6 +389,10 @@ public partial class AppDbContext : DbContext
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
 
             entity.HasOne(d => d.Brand).WithMany(p => p.Products)
                 .HasForeignKey(d => d.BrandId)
@@ -540,15 +548,23 @@ public partial class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValueSql("'0'");
             entity.Property(e => e.FullName).HasMaxLength(150);
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValueSql("'1'");
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
             entity.Property(e => e.Phone).HasMaxLength(20);
             entity.Property(e => e.UpdatedAt)
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
+
+            // SOFT DELETE: không dùng HasDefaultValueSql — EF Core có thể không ghi
+            // IsDeleted=true khi update nếu cấu hình sentinel/default sai.
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            // Global query filter: mọi truy vấn User (kể cả qua navigation như
+            // Order.User, Review.User...) tự động loại user đã xóa mềm, không cần
+            // sửa từng chỗ gọi GetByIdAsync/GetAllAsync. Muốn lấy cả user đã xóa
+            // (vd. audit) thì gọi .IgnoreQueryFilters() ở nơi cần.
+            entity.HasQueryFilter(e => !e.IsDeleted);
 
             entity.HasOne(d => d.Role).WithMany(p => p.Users)
                 .HasForeignKey(d => d.RoleId)

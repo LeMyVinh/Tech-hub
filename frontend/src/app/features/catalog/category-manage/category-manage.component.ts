@@ -106,6 +106,16 @@ export class CategoryManageComponent implements OnInit {
     });
   }
 
+  restoreCategory(id: number): void {
+    const token = this.getToken();
+    if (!token || !confirm('Bạn có chắc chắn muốn khôi phục danh mục này?')) return;
+    this.loading.set(true);
+    this.catalog.restoreCategory(token, id).subscribe({
+      next: (res) => { this.message.set(res.message); this.loading.set(false); this.loadCategories(); },
+      error: (err) => { this.error.set(err.error?.message ?? 'Lỗi khôi phục.'); this.loading.set(false); },
+    });
+  }
+
   goToAdminProducts(): void { this.router.navigate(['/admin/products']); }
   goToAdminBrands(): void { this.router.navigate(['/catalog/brands']); }
 

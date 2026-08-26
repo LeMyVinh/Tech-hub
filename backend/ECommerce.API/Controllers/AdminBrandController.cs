@@ -68,10 +68,24 @@ public sealed class AdminBrandController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}/restore")]
+    public async Task<IActionResult> Restore(int id)
+    {
+        try
+        {
+            var message = await _brandService.RestoreAsync(id);
+            return Ok(new { message });
+        }
+        catch (CatalogException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _brandService.GetAllAsync(includeInactive: true);
+        var result = await _brandService.GetAllAsync(includeDeleted: true);
         return Ok(result);
     }
 }

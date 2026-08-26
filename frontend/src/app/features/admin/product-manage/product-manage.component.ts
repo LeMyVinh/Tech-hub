@@ -62,7 +62,7 @@ export class ProductManageComponent implements OnInit {
       next: cats => this.categories.set(cats.filter(c => c.isActive)),
     });
     this.catalog.getBrands().subscribe({
-      next: b => this.brands.set(b.filter(br => br.isActive)),
+      next: b => this.brands.set(b),
     });
   }
 
@@ -209,6 +209,16 @@ export class ProductManageComponent implements OnInit {
     this.catalog.deleteProduct(token, productId).subscribe({
       next: (res) => { this.message.set(res.message); this.loading.set(false); this.loadProducts(); },
       error: (err) => { this.error.set(err.error?.message ?? 'Lỗi xóa.'); this.loading.set(false); },
+    });
+  }
+
+  restoreProduct(productId: number): void {
+    const token = this.getToken();
+    if (!token || !confirm('Bạn có chắc chắn muốn khôi phục sản phẩm này?')) return;
+    this.loading.set(true);
+    this.catalog.restoreProduct(token, productId).subscribe({
+      next: (res) => { this.message.set(res.message); this.loading.set(false); this.loadProducts(); },
+      error: (err) => { this.error.set(err.error?.message ?? 'Lỗi khôi phục.'); this.loading.set(false); },
     });
   }
 

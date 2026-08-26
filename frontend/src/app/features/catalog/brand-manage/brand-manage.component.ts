@@ -95,13 +95,23 @@ export class BrandManageComponent implements OnInit {
     }
   }
 
-  deleteBrand(id: number): void {
+  deleteBrand(brand: Brand): void {
     const token = this.getToken();
-    if (!token || !confirm('Bạn có chắc chắn muốn ngưng sử dụng thương hiệu này?')) return;
+    if (!token || !confirm(`Xóa thương hiệu "${brand.name}"?\nThương hiệu sẽ bị làm mờ trong danh sách và ẩn khỏi catalog, nhưng bạn có thể khôi phục sau.`)) return;
     this.loading.set(true);
-    this.catalog.deleteBrand(token, id).subscribe({
+    this.catalog.deleteBrand(token, brand.id).subscribe({
       next: (res) => { this.message.set(res.message); this.loading.set(false); this.loadBrands(); },
       error: (err) => { this.error.set(err.error?.message ?? 'Lỗi xóa.'); this.loading.set(false); },
+    });
+  }
+
+  restoreBrand(brand: Brand): void {
+    const token = this.getToken();
+    if (!token || !confirm(`Khôi phục thương hiệu "${brand.name}"?\nThương hiệu sẽ hiện lại trên catalog.`)) return;
+    this.loading.set(true);
+    this.catalog.restoreBrand(token, brand.id).subscribe({
+      next: (res) => { this.message.set(res.message); this.loading.set(false); this.loadBrands(); },
+      error: (err) => { this.error.set(err.error?.message ?? 'Lỗi khôi phục.'); this.loading.set(false); },
     });
   }
 

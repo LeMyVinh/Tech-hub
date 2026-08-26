@@ -89,6 +89,15 @@
   th, td { padding: 0.65rem 1rem; text-align: left; font-size: 0.82rem; border-bottom: 1px solid var(--color-border); }
   th { font-weight: 600; color: var(--color-text-muted); background: var(--color-surface-hover); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
   .font-bold { font-weight: 600; color: var(--color-text); }
+
+  // SOFT DELETE: user đã xóa (IsDeleted=true) hiển thị mờ để phân biệt với
+  // user đang hoạt động, đồng thời vẫn giữ nguyên chiều cao dòng để bảng
+  // không bị giật khi user chuyển trạng thái.
+  tr.deleted td {
+    opacity: 0.55;
+    font-style: italic;
+    background: var(--color-surface-hover);
+  }
 }
 
 .status-badge {

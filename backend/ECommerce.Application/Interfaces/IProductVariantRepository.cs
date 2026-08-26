@@ -13,8 +13,12 @@ public interface IProductVariantRepository
     Task AddAsync(ProductVariant variant);
     Task AddRangeAsync(IEnumerable<ProductVariant> variants);
     Task UpdateAsync(ProductVariant variant);
-    Task DeleteAsync(ProductVariant variant);
-    Task DeleteRangeAsync(IEnumerable<ProductVariant> variants);
+
+    // SOFT DELETE: set IsDeleted=true + DeletedAt=UtcNow. Service nên check
+    // HasOrdersAsync + HasCartItemsAsync trước — variant còn nằm trong giỏ hàng
+    // hoặc đơn chưa giao thì chặn.
+    Task SoftDeleteAsync(ProductVariant variant);
+    Task SoftDeleteRangeAsync(IEnumerable<ProductVariant> variants);
     Task<bool> TryDecrementStockAsync(int variantId, int quantity);
     Task<bool> HasOrdersAsync(int productVariantId);
 

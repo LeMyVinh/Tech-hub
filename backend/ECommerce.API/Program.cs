@@ -8,11 +8,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddOpenApi();
 
 // PERF FIX (#4): cần cho ProductRepository cache cây danh mục (Category tree)
@@ -94,14 +101,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 }
 
                 var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-                var isActive = await db.Users
+                // SOFT DELETE: phải IgnoreQueryFilters() để bắt được cả user đã bị
+                // xóa mềm — query mặc định bị HasQueryFilter loại nên trả về null
+                // dù user thực tế vẫn còn trong DB. Nếu user đã xóa -> fail token.
+                var isDeleted = await db.Users
+                    .IgnoreQueryFilters()
                     .AsNoTracking()
                     .Where(user => user.Id == userId)
-                    .Select(user => user.IsActive)
+                    .Select(user => (bool?)user.IsDeleted)
                     .SingleOrDefaultAsync();
 
-                if (isActive != true)
-                    context.Fail("Tài khoản đã bị khóa hoặc không còn tồn tại.");
+                if (isDeleted == null)
+                    context.Fail("Tài khoản không còn tồn tại.");
+                else if (isDeleted == true)
+                    context.Fail("Tài khoản đã bị xóa và không thể sử dụng hệ thống.");
             }
         };
     });

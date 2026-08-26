@@ -71,12 +71,25 @@ public sealed class AdminProductController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}/restore")]
+    public async Task<IActionResult> Restore(int id)
+    {
+        try
+        {
+            return Ok(new { message = await _productService.RestoreAsync(id) });
+        }
+        catch (CatalogException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] ProductFilterParams filter)
     {
         try
         {
-            var result = await _productService.SearchAsync(filter, includeInactive: true);
+            var result = await _productService.SearchAsync(filter, includeInactive: true, includeDeleted: true);
             return Ok(result);
         }
         catch (CatalogException ex)
@@ -90,7 +103,7 @@ public sealed class AdminProductController : ControllerBase
     {
         try
         {
-            var result = await _productService.GetDetailAsync(id, includeInactive: true);
+            var result = await _productService.GetDetailAsync(id, includeInactive: true, includeDeleted: true);
             return Ok(result);
         }
         catch (CatalogException ex)

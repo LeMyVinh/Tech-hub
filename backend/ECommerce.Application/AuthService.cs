@@ -76,7 +76,6 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password!),
             Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
             RoleId = await _roles.GetRoleIdByNameAsync("Customer"),
-            IsActive = true,
             EmailVerified = false
         };
 
@@ -116,8 +115,11 @@ public class AuthService : IAuthService
             throw new AuthException(401, "Sai email hoặc mật khẩu.");
         }
 
-        if (user.IsActive != true)
-            throw new AuthException(403, "Tài khoản của bạn đã bị khoá.");
+        // SOFT DELETE: GetByEmailAsync đi qua HasQueryFilter nên user đã IsDeleted
+        // trả về null -> đã bị chặn từ trước. Check dưới chỉ là lớp phòng thủ nếu
+        // tương lai có code path nào lookup user bỏ qua filter.
+        if (user.IsDeleted)
+            throw new AuthException(403, "Tài khoản đã bị xóa và không thể đăng nhập.");
 
         if (!user.EmailVerified)
             throw new AuthException(403, "Email của bạn chưa được xác thực. Vui lòng nhập mã OTP đã gửi tới email (hoặc bấm 'Gửi lại mã').");
@@ -137,7 +139,7 @@ public class AuthService : IAuthService
         var tokenValue = Require(request.RefreshToken, "Refresh token không được để trống.");
         var refreshToken = await _refreshTokens.GetByTokenAsync(tokenValue);
 
-        if (refreshToken is null || refreshToken.IsRevoked || refreshToken.ExpiredAt <= DateTime.UtcNow || refreshToken.User.IsActive != true)
+        if (refreshToken is null || refreshToken.IsRevoked || refreshToken.ExpiredAt <= DateTime.UtcNow || refreshToken.User.IsDeleted)
             throw new AuthException(401, "Refresh token không hợp lệ hoặc đã hết hạn.");
 
         var claimed = await _refreshTokens.TryRevokeAsync(refreshToken.Id);

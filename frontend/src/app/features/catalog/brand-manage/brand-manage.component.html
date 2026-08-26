@@ -40,7 +40,7 @@
         </thead>
         <tbody>
           @for (b of brands(); track b.id) {
-            <tr>
+            <tr [class.deleted]="b.isDeleted">
               <td>#{{ b.id }}</td>
               <td>
                 @if (b.logoUrl) {
@@ -51,13 +51,17 @@
               </td>
               <td class="font-bold">{{ b.name }}</td>
               <td>
-                <span class="status-badge" [class.inactive]="!b.isActive">
-                  {{ b.isActive ? 'Hoạt động' : 'Ẩn' }}
+                <span class="status-badge" [class.inactive]="b.isDeleted">
+                  {{ b.isDeleted ? 'Đã xóa' : 'Hoạt động' }}
                 </span>
               </td>
               <td class="actions">
-                <button class="btn-action edit" (click)="openEdit(b)"><span class="material-icons">edit</span> Sửa</button>
-                <button class="btn-action delete" (click)="deleteBrand(b.id)"><span class="material-icons">block</span> Ngừng dùng</button>
+                @if (b.isDeleted) {
+                  <button class="btn-action edit" (click)="restoreBrand(b)"><span class="material-icons">restore</span> Khôi phục</button>
+                } @else {
+                  <button class="btn-action edit" (click)="openEdit(b)"><span class="material-icons">edit</span> Sửa</button>
+                  <button class="btn-action delete" (click)="deleteBrand(b)"><span class="material-icons">delete_forever</span> Xóa</button>
+                }
               </td>
             </tr>
           }

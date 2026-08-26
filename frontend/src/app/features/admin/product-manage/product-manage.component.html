@@ -42,7 +42,7 @@
         </thead>
         <tbody>
           @for (prod of products()?.items; track prod.id) {
-            <tr>
+            <tr [class.deleted]="prod.isDeleted">
               <td>#{{ prod.id }}</td>
               <td>
                 <img class="thumb-img"
@@ -53,13 +53,17 @@
               <td><span class="pill">{{ prod.categoryName }}</span></td>
               <td><span class="pill brand">{{ prod.brandName }}</span></td>
               <td>
-                <span class="status-badge" [class.inactive]="prod.status !== 'Active'">
-                  {{ prod.status === 'Active' ? 'Kinh doanh' : 'Ẩn / Ngừng' }}
+                <span class="status-badge" [class.inactive]="prod.status !== 'Active' || prod.isDeleted">
+                  {{ prod.isDeleted ? 'Đã xóa' : (prod.status === 'Active' ? 'Kinh doanh' : 'Ẩn / Ngừng') }}
                 </span>
               </td>
               <td class="actions">
-                <button class="btn-action edit" (click)="openEdit(prod.id)"><span class="material-icons">edit</span> Sửa</button>
-                <button class="btn-action delete" (click)="deleteProduct(prod.id)"><span class="material-icons">block</span> Ẩn/Xóa</button>
+                @if (prod.isDeleted) {
+                  <button class="btn-action edit" (click)="restoreProduct(prod.id)"><span class="material-icons">restore</span> Khôi phục</button>
+                } @else {
+                  <button class="btn-action edit" (click)="openEdit(prod.id)"><span class="material-icons">edit</span> Sửa</button>
+                  <button class="btn-action delete" (click)="deleteProduct(prod.id)"><span class="material-icons">delete</span> Xóa</button>
+                }
               </td>
             </tr>
           }

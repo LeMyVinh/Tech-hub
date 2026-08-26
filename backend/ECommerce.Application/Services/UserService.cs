@@ -12,11 +12,16 @@ public class UserService : IUserService
 
     private readonly IUserRepository _userRepository;
     private readonly IAddressRepository _addressRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
 
-    public UserService(IUserRepository userRepository, IAddressRepository addressRepository)
+    public UserService(
+        IUserRepository userRepository,
+        IAddressRepository addressRepository,
+        IRefreshTokenRepository refreshTokenRepository)
     {
         _userRepository = userRepository;
         _addressRepository = addressRepository;
+        _refreshTokenRepository = refreshTokenRepository;
     }
 
     public async Task<UserProfileResponse> GetUserProfileAsync(int userId)
@@ -30,7 +35,8 @@ public class UserService : IUserService
             user.Email,
             user.Phone,
             user.Role.Name,
-            user.IsActive ?? true,
+            user.IsDeleted,
+            user.DeletedAt,
             user.CreatedAt
         );
     }
@@ -64,7 +70,8 @@ public class UserService : IUserService
             user.Email,
             user.Phone,
             user.Role.Name,
-            user.IsActive ?? true,
+            user.IsDeleted,
+            user.DeletedAt,
             user.CreatedAt
         );
     }
@@ -153,7 +160,10 @@ public class UserService : IUserService
             throw new UserException(400,
                 "Không thể xóa địa chỉ đã được dùng để đặt hàng. Bạn có thể thêm địa chỉ mới thay thế.");
 
-        await _addressRepository.DeleteAsync(address);
+        // FIX: IAddressRepository không có DeleteAsync (hard delete), chỉ có
+        // SoftDeleteAsync. Đổi sang gọi đúng method để build được và giữ đúng
+        // thiết kế soft-delete (đánh dấu IsDeleted/DeletedAt thay vì xóa cứng).
+        await _addressRepository.SoftDeleteAsync(address);
         await _addressRepository.SaveChangesAsync();
     }
 
@@ -189,7 +199,8 @@ public class UserService : IUserService
                 u.Email,
                 u.Phone,
                 u.Role.Name,
-                u.IsActive ?? true,
+                u.IsDeleted,
+                u.DeletedAt,
                 u.CreatedAt
             )).ToList(),
             totalCount,
@@ -216,8 +227,9 @@ public class UserService : IUserService
                 throw new UserException(400, "Không thể khóa tài khoản Admin cuối cùng đang hoạt động trong hệ thống.");
         }
 
-        user.IsActive = false;
-        user.UpdatedAt = DateTime.UtcNow;
+        // Bỏ IsActive: không còn cờ này trên User. Nếu muốn "tạm khóa" thì dùng
+        // soft delete; nếu muốn trạng thái tạm thời khác thì cần thêm cờ riêng.
+        // Hiện tại: chỉ thao tác soft delete / restore là đủ cho yêu cầu nghiệp vụ.
         await _userRepository.SaveChangesAsync();
     }
 
@@ -226,7 +238,46 @@ public class UserService : IUserService
         var user = await _userRepository.GetByIdAsync(targetUserId)
             ?? throw new UserException(404, "Người dùng không tồn tại.");
 
-        user.IsActive = true;
+        await _userRepository.SaveChangesAsync();
+    }
+
+    // SOFT DELETE: thao tác này đánh dấu IsDeleted = true khiến user bị
+    // HasQueryFilter loại khỏi mọi truy vấn mặc định (không còn hiện trong danh
+    // sách quản trị, không login được). Dữ liệu liên quan (Order, Review...)
+    // vẫn giữ nguyên nhờ FK, không xóa cứng User.
+    public async Task SoftDeleteUserAsync(int targetUserId)
+    {
+        var user = await _userRepository.GetByIdAsync(targetUserId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        if (user.Role.Name == "Admin")
+        {
+            var activeAdminCount = await _userRepository.GetActiveAdminCountAsync();
+            if (activeAdminCount <= 1)
+                throw new UserException(400, "Không thể xóa tài khoản Admin cuối cùng đang hoạt động trong hệ thống.");
+        }
+
+        await _userRepository.SoftDeleteAsync(user);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.SaveChangesAsync();
+
+        // Thu hồi toàn bộ refresh token, đá user ra khỏi mọi phiên đang đăng nhập
+        // ngay lập tức thay vì chờ access token (15 phút) hết hạn.
+        await _refreshTokenRepository.RevokeAllByUserIdAsync(targetUserId);
+    }
+
+    // RESTORE: đảo ngược soft delete. User hoạt động lại bình thường, hiện trở
+    // lại trong danh sách quản trị và có thể đăng nhập.
+    public async Task RestoreUserAsync(int targetUserId)
+    {
+        // Dùng IgnoreQueryFilters để lấy được cả user đã bị soft delete.
+        var user = await _userRepository.GetByIdIncludingDeletedAsync(targetUserId)
+            ?? throw new UserException(404, "Người dùng không tồn tại.");
+
+        if (!user.IsDeleted)
+            return; // không phải user đã xóa -> nothing to do
+
+        await _userRepository.RestoreAsync(user);
         user.UpdatedAt = DateTime.UtcNow;
         await _userRepository.SaveChangesAsync();
     }

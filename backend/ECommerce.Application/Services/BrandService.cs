@@ -25,7 +25,6 @@ public sealed class BrandService : IBrandService
         {
             Name = trimmedName,
             LogoUrl = string.IsNullOrWhiteSpace(request.LogoUrl) ? null : request.LogoUrl.Trim(),
-            IsActive = true
         };
 
         await _brandRepository.AddAsync(brand);
@@ -63,27 +62,30 @@ public sealed class BrandService : IBrandService
         if (brand == null)
             throw new CatalogException(404, "Thương hiệu không tồn tại.");
 
-        // FIX: tương tự CategoryService.DeleteAsync — trước đây brand.IsActive luôn bị
-        // set false kể cả khi đang có sản phẩm Active thuộc thương hiệu này, khiến sản
-        // phẩm biến mất âm thầm khỏi trang khách hàng. Giờ chặn hẳn nếu còn sản phẩm
-        // đang kinh doanh.
-        var hasActiveProducts = await _brandRepository.HasActiveProductsAsync(id);
-        if (hasActiveProducts)
-        {
-            throw new CatalogException(400,
-                "Không thể ẩn thương hiệu đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang thương hiệu khác trước khi ẩn.");
-        }
+        // SOFT DELETE: cho phép xóa kể cả khi còn sản phẩm — dữ liệu vẫn giữ nguyên
+        // qua FK, thương hiệu chỉ bị ẩn khỏi catalog và admin có thể khôi phục sau.
+        await _brandRepository.SoftDeleteAsync(brand);
 
-        brand.IsActive = false;
-        await _brandRepository.UpdateAsync(brand);
-        await _brandRepository.SaveChangesAsync();
-
-        return "Đã ngừng sử dụng thương hiệu thành công.";
+        return "Đã xóa thương hiệu thành công.";
     }
 
-    public async Task<IEnumerable<BrandResponse>> GetAllAsync(bool includeInactive = false)
+    public async Task<string> RestoreAsync(int id)
     {
-        var brands = await _brandRepository.GetAllAsync(includeInactive);
+        var brand = await _brandRepository.GetByIdIncludingDeletedAsync(id);
+        if (brand == null)
+            throw new CatalogException(404, "Thương hiệu không tồn tại.");
+
+        if (!brand.IsDeleted)
+            return "Thương hiệu đang hoạt động.";
+
+        await _brandRepository.RestoreAsync(brand);
+
+        return "Đã khôi phục thương hiệu thành công.";
+    }
+
+    public async Task<IEnumerable<BrandResponse>> GetAllAsync(bool includeDeleted = false)
+    {
+        var brands = await _brandRepository.GetAllAsync(includeDeleted);
         return brands.Select(MapToResponse);
     }
 
@@ -100,7 +102,8 @@ public sealed class BrandService : IBrandService
             b.Id,
             b.Name,
             b.LogoUrl,
-            b.IsActive ?? false
+            b.IsDeleted,
+            b.DeletedAt
         );
     }
 }

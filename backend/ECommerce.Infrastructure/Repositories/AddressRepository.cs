@@ -38,9 +38,11 @@ public class AddressRepository : IAddressRepository
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Address address)
+    public Task SoftDeleteAsync(Address address)
     {
-        _context.Addresses.Remove(address);
+        address.IsDeleted = true;
+        address.DeletedAt = DateTime.UtcNow;
+        _context.Addresses.Update(address);
         return Task.CompletedTask;
     }
 

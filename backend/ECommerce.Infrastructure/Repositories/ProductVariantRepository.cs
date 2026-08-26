@@ -53,15 +53,23 @@ public sealed class ProductVariantRepository : IProductVariantRepository
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(ProductVariant variant)
+    public Task SoftDeleteAsync(ProductVariant variant)
     {
-        _db.ProductVariants.Remove(variant);
+        variant.IsDeleted = true;
+        variant.DeletedAt = DateTime.UtcNow;
+        _db.ProductVariants.Update(variant);
         return Task.CompletedTask;
     }
 
-    public Task DeleteRangeAsync(IEnumerable<ProductVariant> variants)
+    public Task SoftDeleteRangeAsync(IEnumerable<ProductVariant> variants)
     {
-        _db.ProductVariants.RemoveRange(variants);
+        var now = DateTime.UtcNow;
+        foreach (var v in variants)
+        {
+            v.IsDeleted = true;
+            v.DeletedAt = now;
+        }
+        _db.ProductVariants.UpdateRange(variants);
         return Task.CompletedTask;
     }
 

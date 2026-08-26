@@ -23,6 +23,12 @@ public partial class Review
 
     public DateTime CreatedAt { get; set; }
 
+    // SOFT DELETE: Review có FK từ OrderItem (UNIQUE). Soft delete giữ tham chiếu
+    // cho OrderItem lịch sử nhưng ẩn review khỏi danh sách hiển thị của sản phẩm.
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
     public virtual OrderItem OrderItem { get; set; } = null!;
 
     public virtual Product Product { get; set; } = null!;

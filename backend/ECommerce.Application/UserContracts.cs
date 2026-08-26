@@ -6,7 +6,8 @@ public sealed record UserProfileResponse(
     string Email,
     string? Phone,
     string Role,
-    bool IsActive,
+    bool IsDeleted,
+    DateTime? DeletedAt,
     DateTime CreatedAt
 );
 

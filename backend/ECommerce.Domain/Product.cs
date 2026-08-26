@@ -21,6 +21,13 @@ public partial class Product
 
     public DateTime UpdatedAt { get; set; }
 
+    // SOFT DELETE: Product có FK từ Review, WishlistItem, OrderItem. Soft delete giữ
+    // tham chiếu từ các đơn hàng cũ + cho phép khôi phục. Query Filter sẽ tự ẩn
+    // khỏi catalog và search.
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
     public virtual Brand Brand { get; set; } = null!;
 
     public virtual Category Category { get; set; } = null!;

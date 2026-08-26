@@ -36,11 +36,11 @@ public static class DbSeeder
             {
                 var brands = new List<Brand>
                 {
-                    new Brand { Name = "Dell", LogoUrl = "https://cdn.techhub.vn/brands/dell.png", IsActive = true },
-                    new Brand { Name = "ASUS", LogoUrl = "https://cdn.techhub.vn/brands/asus.png", IsActive = true },
-                    new Brand { Name = "MSI", LogoUrl = "https://cdn.techhub.vn/brands/msi.png", IsActive = true },
-                    new Brand { Name = "Logitech", LogoUrl = "https://cdn.techhub.vn/brands/logitech.png", IsActive = true },
-                    new Brand { Name = "Kingston", LogoUrl = "https://cdn.techhub.vn/brands/kingston.png", IsActive = true }
+                    new Brand { Name = "Dell", LogoUrl = "https://cdn.techhub.vn/brands/dell.png" },
+                    new Brand { Name = "ASUS", LogoUrl = "https://cdn.techhub.vn/brands/asus.png" },
+                    new Brand { Name = "MSI", LogoUrl = "https://cdn.techhub.vn/brands/msi.png" },
+                    new Brand { Name = "Logitech", LogoUrl = "https://cdn.techhub.vn/brands/logitech.png" },
+                    new Brand { Name = "Kingston", LogoUrl = "https://cdn.techhub.vn/brands/kingston.png" }
                 };
 
                 await context.Brands.AddRangeAsync(brands);

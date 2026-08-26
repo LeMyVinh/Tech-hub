@@ -8,7 +8,8 @@ export interface UserProfile {
   email: string;
   phone: string | null;
   role: string;
-  isActive: boolean;
+  isDeleted: boolean;
+  deletedAt: string | null;
   createdAt: string;
 }
 

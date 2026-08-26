@@ -50,26 +50,43 @@ export class UserManageComponent implements OnInit {
     });
   }
 
-  toggleLock(u: AdminUserProfile): void {
+  // SOFT DELETE: user bị đánh dấu IsDeleted=true, vẫn hiển thị mờ trong danh sách admin.
+  deleteUser(u: AdminUserProfile): void {
     const token = this.getToken();
     if (!token) return;
 
-    const actionLabel = u.isActive ? 'khóa' : 'mở khóa';
-    if (!confirm(`Bạn có chắc chắn muốn ${actionLabel} tài khoản "${u.fullName}"?`)) return;
+    if (!confirm(`Xóa tài khoản "${u.fullName}" (${u.email})?\nTài khoản sẽ bị làm mờ trong danh sách và không thể đăng nhập, nhưng bạn có thể khôi phục sau.`)) return;
 
     this.processingId.set(u.id);
-    const request$ = u.isActive
-      ? this.userService.lockUser(token, u.id)
-      : this.userService.unlockUser(token, u.id);
-
-    request$.subscribe({
+    this.userService.deleteUser(token, u.id).subscribe({
       next: res => {
         this.message.set(res.message);
         this.processingId.set(null);
         this.loadUsers();
       },
       error: err => {
-        this.error.set(err.error?.message ?? `Lỗi khi ${actionLabel} tài khoản.`);
+        this.error.set(err.error?.message ?? 'Lỗi khi xóa tài khoản.');
+        this.processingId.set(null);
+      },
+    });
+  }
+
+  // RESTORE: khôi phục user đã bị soft delete. User hoạt động trở lại.
+  restoreUser(u: AdminUserProfile): void {
+    const token = this.getToken();
+    if (!token) return;
+
+    if (!confirm(`Khôi phục tài khoản "${u.fullName}" (${u.email})?\nUser sẽ có thể đăng nhập và sử dụng hệ thống trở lại.`)) return;
+
+    this.processingId.set(u.id);
+    this.userService.restoreUser(token, u.id).subscribe({
+      next: res => {
+        this.message.set(res.message);
+        this.processingId.set(null);
+        this.loadUsers();
+      },
+      error: err => {
+        this.error.set(err.error?.message ?? 'Lỗi khi khôi phục tài khoản.');
         this.processingId.set(null);
       },
     });

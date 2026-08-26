@@ -13,5 +13,12 @@ public partial class ProductImage
 
     public bool IsPrimary { get; set; }
 
+    // SOFT DELETE: ProductImage có FK ProductId (ON DELETE CASCADE ở DB). Soft delete
+    // cho phép admin "xóa" ảnh mà vẫn khôi phục được. Khi Product cha bị xóa mềm,
+    // ảnh cũng nên ẩn theo (cascaded ở tầng service).
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
     public virtual Product Product { get; set; } = null!;
 }

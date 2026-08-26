@@ -12,4 +12,6 @@ public interface IUserService
     Task<UserListResponse> GetAllUsersAsync(int page, int pageSize);
     Task LockUserAsync(int targetUserId);
     Task UnlockUserAsync(int targetUserId);
+    Task SoftDeleteUserAsync(int targetUserId);
+    Task RestoreUserAsync(int targetUserId);
 }

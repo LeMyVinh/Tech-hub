@@ -141,6 +141,12 @@
   }
 
   .font-bold { font-weight: 600; color: var(--color-text); }
+
+  tr.deleted td {
+    opacity: 0.55;
+    font-style: italic;
+    background: var(--color-surface-hover);
+  }
 }
 
 .brand-logo-img {
@@ -171,6 +177,9 @@
 .actions { display: flex; gap: 0.35rem; }
 
 .btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);

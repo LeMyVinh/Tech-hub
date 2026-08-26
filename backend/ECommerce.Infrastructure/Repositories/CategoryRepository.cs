@@ -14,18 +14,21 @@ public sealed class CategoryRepository : ICategoryRepository
         _db = db;
     }
 
-    public async Task<Category?> GetByIdAsync(int id)
-    {
-        return await _db.Categories
-            .Include(c => c.Parent)
-            .FirstOrDefaultAsync(c => c.Id == id);
-    }
-
-    public async Task<List<Category>> GetAllAsync(bool includeInactive = false)
+    public async Task<Category?> GetByIdAsync(int id, bool includeDeleted = false)
     {
         var query = _db.Categories
             .Include(c => c.Parent)
             .AsQueryable();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
+        return await query.FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<List<Category>> GetAllAsync(bool includeInactive = false, bool includeDeleted = false)
+    {
+        var query = _db.Categories
+            .Include(c => c.Parent)
+            .AsQueryable();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
 
         if (!includeInactive)
         {
@@ -56,6 +59,23 @@ public sealed class CategoryRepository : ICategoryRepository
 
     public Task UpdateAsync(Category category)
     {
+        _db.Categories.Update(category);
+        return Task.CompletedTask;
+    }
+
+    // SOFT DELETE: xem comment ở BrandRepository.SoftDeleteAsync.
+    public Task SoftDeleteAsync(Category category)
+    {
+        category.IsDeleted = true;
+        category.DeletedAt = DateTime.UtcNow;
+        _db.Categories.Update(category);
+        return Task.CompletedTask;
+    }
+
+    public Task RestoreAsync(Category category)
+    {
+        category.IsDeleted = false;
+        category.DeletedAt = null;
         _db.Categories.Update(category);
         return Task.CompletedTask;
     }

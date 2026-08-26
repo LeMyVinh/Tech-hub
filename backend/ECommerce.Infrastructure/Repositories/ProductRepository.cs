@@ -20,9 +20,10 @@ public sealed class ProductRepository : IProductRepository
         _cache = cache;
     }
 
-    public async Task<Product?> GetByIdAsync(int id, bool includeInactive = false)
+    public async Task<Product?> GetByIdAsync(int id, bool includeInactive = false, bool includeDeleted = false)
     {
         var query = _db.Products.AsQueryable();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
         if (!includeInactive)
         {
             query = query.Where(p => p.Status == "Active");
@@ -30,7 +31,7 @@ public sealed class ProductRepository : IProductRepository
         return await query.FirstOrDefaultAsync(p => p.Id == id);
     }
 
-    public async Task<Product?> GetWithDetailsAsync(int id, bool includeInactive = false)
+    public async Task<Product?> GetWithDetailsAsync(int id, bool includeInactive = false, bool includeDeleted = false)
     {
         // PERF FIX: trước đây Include(p => p.Reviews).ThenInclude(r => r.User) load
         // TOÀN BỘ review của sản phẩm (không giới hạn số lượng) mỗi khi khách xem
@@ -45,19 +46,20 @@ public sealed class ProductRepository : IProductRepository
             .Include(p => p.ProductVariants)
             .Include(p => p.ProductImages)
             .AsQueryable();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
 
         if (!includeInactive)
         {
             query = query.Where(p =>
                 p.Status == "Active" &&
                 p.Category.IsActive == true &&
-                p.Brand.IsActive == true);
+                _db.Brands.Any(b => b.Id == p.BrandId));
         }
 
         return await query.FirstOrDefaultAsync(p => p.Id == id);
     }
 
-    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false)
+    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false, bool includeDeleted = false)
     {
         var query = _db.Products
             .Include(p => p.Category)
@@ -65,10 +67,11 @@ public sealed class ProductRepository : IProductRepository
             .Include(p => p.ProductVariants)
             .Include(p => p.ProductImages)
             .AsQueryable();
+        if (includeDeleted) query = query.IgnoreQueryFilters();
 
         if (!includeInactive)
         {
-            query = query.Where(p => p.Status == "Active" && p.Category.IsActive == true && p.Brand.IsActive == true);
+            query = query.Where(p => p.Status == "Active" && p.Category.IsActive == true && _db.Brands.Any(b => b.Id == p.BrandId));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Keyword))
@@ -130,7 +133,9 @@ public sealed class ProductRepository : IProductRepository
                 minPrice,
                 maxPrice,
                 primaryImage,
-                p.Status
+                p.Status,
+                p.IsDeleted,
+                p.DeletedAt
             );
         }).ToList();
 
@@ -207,9 +212,19 @@ public sealed class ProductRepository : IProductRepository
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(Product product)
+    public Task SoftDeleteAsync(Product product)
     {
-        _db.Products.Remove(product);
+        product.IsDeleted = true;
+        product.DeletedAt = DateTime.UtcNow;
+        _db.Products.Update(product);
+        return Task.CompletedTask;
+    }
+
+    public Task RestoreAsync(Product product)
+    {
+        product.IsDeleted = false;
+        product.DeletedAt = null;
+        _db.Products.Update(product);
         return Task.CompletedTask;
     }
 

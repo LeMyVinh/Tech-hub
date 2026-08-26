@@ -19,6 +19,13 @@ public partial class ProductVariant
 
     public DateTime CreatedAt { get; set; }
 
+    // SOFT DELETE: ProductVariant có FK từ CartItem (not-null) và OrderItem.
+    // Service chặn xóa nếu còn OrderItem hoặc CartItem active. Soft delete giữ
+    // tham chiếu từ lịch sử đơn hàng.
+    public bool IsDeleted { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
     public virtual ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
 
     public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();

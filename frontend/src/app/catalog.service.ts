@@ -8,13 +8,16 @@ export interface Category {
   parentId?: number;
   parentName?: string;
   isActive: boolean;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface Brand {
   id: number;
   name: string;
   logoUrl?: string;
-  isActive: boolean;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface ProductVariant {
@@ -40,6 +43,8 @@ export interface ProductSummary {
   maxPrice: number;
   primaryImageUrl?: string;
   status: string;
+  isDeleted: boolean;
+  deletedAt?: string | null;
 }
 
 export interface ApprovedReview {
@@ -182,6 +187,12 @@ export class CatalogService {
     });
   }
 
+  restoreCategory(token: string, id: number): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/admin/categories/${id}/restore`, {}, {
+      headers: this.getAuthHeaders(token),
+    });
+  }
+
   // --- BRANDS ---
   getBrands(): Observable<Brand[]> {
     return this.http.get<Brand[]>(`${this.baseUrl}/brands`);
@@ -207,6 +218,12 @@ export class CatalogService {
 
   deleteBrand(token: string, id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.baseUrl}/admin/brands/${id}`, {
+      headers: this.getAuthHeaders(token),
+    });
+  }
+
+  restoreBrand(token: string, id: number): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/admin/brands/${id}/restore`, {}, {
       headers: this.getAuthHeaders(token),
     });
   }
@@ -271,6 +288,12 @@ export class CatalogService {
 
   deleteProduct(token: string, id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.baseUrl}/admin/products/${id}`, {
+      headers: this.getAuthHeaders(token),
+    });
+  }
+
+  restoreProduct(token: string, id: number): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.baseUrl}/admin/products/${id}/restore`, {}, {
       headers: this.getAuthHeaders(token),
     });
   }

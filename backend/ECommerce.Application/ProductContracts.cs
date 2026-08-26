@@ -93,7 +93,9 @@ public sealed record ProductSummaryResponse(
     decimal MinPrice,
     decimal MaxPrice,
     string? PrimaryImageUrl,
-    string Status
+    string Status,
+    bool IsDeleted,
+    DateTime? DeletedAt
 );
 
 public sealed record PagedResult<T>(

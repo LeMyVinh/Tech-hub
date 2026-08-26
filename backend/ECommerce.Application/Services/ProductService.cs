@@ -42,7 +42,7 @@ public sealed class ProductService : IProductService
             throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
 
         var brand = await _brandRepository.GetByIdAsync(request.BrandId);
-        if (brand == null || brand.IsActive != true)
+        if (brand == null)
             throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
 
         if (request.Variants == null || request.Variants.Count == 0)
@@ -138,7 +138,7 @@ public sealed class ProductService : IProductService
             throw new CatalogException(400, "Danh mục không tồn tại hoặc đã bị ẩn.");
 
         var brand = await _brandRepository.GetByIdAsync(request.BrandId);
-        if (brand == null || brand.IsActive != true)
+        if (brand == null)
             throw new CatalogException(400, "Thương hiệu không tồn tại hoặc đã bị ẩn.");
 
         if (request.Variants == null || request.Variants.Count == 0)
@@ -207,7 +207,10 @@ public sealed class ProductService : IProductService
 
         if (toRemoveVariants.Count > 0)
         {
-            await _variantRepository.DeleteRangeAsync(toRemoveVariants);
+            // SOFT DELETE: thay vì RemoveRange (sẽ fail FK nếu còn OrderItem/CartItem
+            // tham chiếu dù 2 hàm check ở trên đã chặn, vẫn an toàn hơn khi soft delete).
+            // Biến thể "xóa" sẽ ẩn khỏi query mặc định, có thể khôi phục nếu cần.
+            await _variantRepository.SoftDeleteRangeAsync(toRemoveVariants);
         }
 
         foreach (var vDto in request.Variants)
@@ -246,7 +249,8 @@ public sealed class ProductService : IProductService
         var toRemoveImages = existingImages.Where(img => !requestImageIds.Contains(img.Id)).ToList();
         if (toRemoveImages.Count > 0)
         {
-            await _imageRepository.DeleteRangeAsync(toRemoveImages);
+            // SOFT DELETE: tương tự variant — ẩn ảnh thay vì xóa cứng, có thể khôi phục.
+            await _imageRepository.SoftDeleteRangeAsync(toRemoveImages);
         }
 
         if (request.Images != null)
@@ -285,34 +289,46 @@ public sealed class ProductService : IProductService
 
     public async Task<string> DeleteAsync(int id)
     {
+        // includeInactive: true để tìm được cả sản phẩm đã bị ẩn trước đó.
+        // Tuy nhiên Global Query Filter vẫn ẩn các bản ghi IsDeleted=true, nên nếu
+        // sản phẩm đã bị xóa mềm từ trước thì GetByIdAsync sẽ trả về null — hành vi
+        // đúng (gọi lại Delete trên bản ghi đã xóa -> 404).
         var product = await _productRepository.GetByIdAsync(id, includeInactive: true);
         if (product == null)
             throw new CatalogException(404, "Sản phẩm không tồn tại.");
 
-        var hasOrders = await _productRepository.HasOrdersAsync(id);
-        product.Status = "Inactive";
-        await _productRepository.UpdateAsync(product);
+        // Soft delete luôn được dùng, kể cả khi sản phẩm đã có đơn hàng: bản ghi
+        // vẫn còn nguyên trong DB nên không làm mất liên kết lịch sử OrderItem.
+        await _productRepository.SoftDeleteAsync(product);
         await _productRepository.SaveChangesAsync();
 
-        if (hasOrders)
-        {
-            return "Không thể xoá sản phẩm đã phát sinh đơn hàng, chỉ có thể ẩn.";
-        }
-
-        return "Đã chuyển sản phẩm sang trạng thái ẩn.";
+        return "Đã xóa sản phẩm thành công.";
     }
 
-    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false)
+    public async Task<string> RestoreAsync(int id)
+    {
+        var product = await _productRepository.GetByIdAsync(id, includeInactive: true, includeDeleted: true);
+        if (product == null)
+            throw new CatalogException(404, "Sản phẩm không tồn tại.");
+        if (!product.IsDeleted)
+            throw new CatalogException(400, "Sản phẩm này chưa bị xóa.");
+
+        await _productRepository.RestoreAsync(product);
+        await _productRepository.SaveChangesAsync();
+        return "Đã khôi phục sản phẩm thành công.";
+    }
+
+    public async Task<PagedResult<ProductSummaryResponse>> SearchAsync(ProductFilterParams filter, bool includeInactive = false, bool includeDeleted = false)
     {
         if (filter.MinPrice.HasValue && filter.MaxPrice.HasValue && filter.MinPrice > filter.MaxPrice)
             throw new CatalogException(400, "Khoảng giá không hợp lệ.");
 
-        return await _productRepository.SearchAsync(filter, includeInactive);
+        return await _productRepository.SearchAsync(filter, includeInactive, includeDeleted);
     }
 
-    public async Task<ProductDetailResponse> GetDetailAsync(int id, bool includeInactive = false)
+    public async Task<ProductDetailResponse> GetDetailAsync(int id, bool includeInactive = false, bool includeDeleted = false)
     {
-        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive);
+        var product = await _productRepository.GetWithDetailsAsync(id, includeInactive, includeDeleted);
         if (product == null)
             throw new CatalogException(404, "Sản phẩm không tồn tại.");
 

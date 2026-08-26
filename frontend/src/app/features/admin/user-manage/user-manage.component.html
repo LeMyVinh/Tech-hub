@@ -47,7 +47,8 @@
         </thead>
         <tbody>
           @for (u of users()?.users; track u.id) {
-            <tr>
+            <!-- SOFT DELETE: user đã xóa (IsDeleted=true) hiển thị mờ + có nút Restore -->
+            <tr [class.deleted]="u.isDeleted">
               <td>#{{ u.id }}</td>
               <td class="font-bold">{{ u.fullName }}</td>
               <td>{{ u.email }}</td>
@@ -58,8 +59,8 @@
                 </span>
               </td>
               <td>
-                <span class="status-badge" [class.inactive]="!u.isActive">
-                  {{ u.isActive ? 'Hoạt động' : 'Đã khóa' }}
+                <span class="status-badge" [class.inactive]="u.isDeleted">
+                  {{ u.isDeleted ? 'Đã xóa' : 'Hoạt động' }}
                 </span>
               </td>
               <td>{{ u.createdAt | date:'dd/MM/yyyy' }}</td>
@@ -67,15 +68,23 @@
                 @if (u.role === 'Admin') {
                   <span class="no-logo">Không thể thao tác</span>
                 } @else {
-                  <button
-                    class="btn-action"
-                    [class.delete]="u.isActive"
-                    [class.edit]="!u.isActive"
-                    [disabled]="processingId() === u.id"
-                    (click)="toggleLock(u)">
-                    <span class="material-icons">{{ u.isActive ? 'lock' : 'lock_open' }}</span>
-                    {{ u.isActive ? 'Khóa' : 'Mở khóa' }}
-                  </button>
+                  @if (u.isDeleted) {
+                    <button
+                      class="btn-action edit"
+                      [disabled]="processingId() === u.id"
+                      (click)="restoreUser(u)">
+                      <span class="material-icons">restore</span>
+                      Khôi phục
+                    </button>
+                  } @else {
+                    <button
+                      class="btn-action delete"
+                      [disabled]="processingId() === u.id"
+                      (click)="deleteUser(u)">
+                      <span class="material-icons">delete_forever</span>
+                      Xóa
+                    </button>
+                  }
                 }
               </td>
             </tr>

@@ -94,7 +94,7 @@ public sealed class CategoryService : ICategoryService
             throw new CatalogException(404, "Danh mục không tồn tại.");
 
         // FIX: trước đây category.IsActive luôn bị set false ngay cả khi đang có sản
-        // phẩm Active gắn với nó, khiến toàn bộ sản phẩm đó "biến mất" âm thầm khỏi
+        // phẩm Active gắn với nó, khiếm toàn bộ sản phẩm đó "biến mất" âm thầm khỏi
         // trang khách hàng (ProductRepository.SearchAsync lọc theo Category.IsActive).
         // Giờ chặn hẳn thao tác ẩn nếu còn sản phẩm đang kinh doanh, buộc Admin phải
         // chuyển sản phẩm sang danh mục khác trước.
@@ -105,16 +105,31 @@ public sealed class CategoryService : ICategoryService
                 "Không thể ẩn danh mục đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang danh mục khác trước khi ẩn.");
         }
 
-        category.IsActive = false;
-        await _categoryRepository.UpdateAsync(category);
+        // SOFT DELETE: chuyển từ cơ chế ẩn bằng IsActive=false sang IsDeleted=true.
+        // Global Query Filter sẽ tự loại khỏi mọi query (kể cả khi includeInactive).
+        // Vẫn giữ IsActive=false để tương thích ngược với code cũ.
+        await _categoryRepository.SoftDeleteAsync(category);
         await _categoryRepository.SaveChangesAsync();
 
-        return "Đã ngừng sử dụng danh mục thành công.";
+        return "Đã xóa danh mục thành công.";
     }
 
-    public async Task<IEnumerable<CategoryResponse>> GetAllAsync(bool includeInactive = false)
+    public async Task<string> RestoreAsync(int id)
     {
-        var categories = await _categoryRepository.GetAllAsync(includeInactive);
+        var category = await _categoryRepository.GetByIdAsync(id, includeDeleted: true);
+        if (category == null)
+            throw new CatalogException(404, "Danh mục không tồn tại.");
+        if (!category.IsDeleted)
+            throw new CatalogException(400, "Danh mục này chưa bị xóa.");
+
+        await _categoryRepository.RestoreAsync(category);
+        await _categoryRepository.SaveChangesAsync();
+        return "Đã khôi phục danh mục thành công.";
+    }
+
+    public async Task<IEnumerable<CategoryResponse>> GetAllAsync(bool includeInactive = false, bool includeDeleted = false)
+    {
+        var categories = await _categoryRepository.GetAllAsync(includeInactive, includeDeleted);
         return categories.Select(MapToResponse);
     }
 
@@ -155,7 +170,9 @@ public sealed class CategoryService : ICategoryService
             c.Name,
             c.ParentId,
             c.Parent?.Name,
-            c.IsActive ?? false
+            c.IsActive ?? false,
+            c.IsDeleted,
+            c.DeletedAt
         );
     }
 }

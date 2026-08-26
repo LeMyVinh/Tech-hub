@@ -57,7 +57,7 @@ export class ProductListComponent implements OnInit {
       error: () => {},
     });
     this.catalog.getBrands().subscribe({
-      next: b => this.brands.set(b.filter(br => br.isActive)),
+      next: b => this.brands.set(b),
       error: () => {},
     });
   }

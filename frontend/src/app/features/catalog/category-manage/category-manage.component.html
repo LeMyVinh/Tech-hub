@@ -40,18 +40,22 @@
         </thead>
         <tbody>
           @for (cat of categories(); track cat.id) {
-            <tr>
+            <tr [class.deleted]="cat.isDeleted">
               <td>#{{ cat.id }}</td>
               <td class="font-bold">{{ cat.name }}</td>
               <td>{{ cat.parentName || '— (Danh mục gốc)' }}</td>
               <td>
-                <span class="status-badge" [class.inactive]="!cat.isActive">
-                  {{ cat.isActive ? 'Hoạt động' : 'Ẩn' }}
+                <span class="status-badge" [class.inactive]="!cat.isActive || cat.isDeleted">
+                  {{ cat.isDeleted ? 'Đã xóa' : (cat.isActive ? 'Hoạt động' : 'Ẩn') }}
                 </span>
               </td>
               <td class="actions">
-                <button class="btn-action edit" (click)="openEdit(cat)"><span class="material-icons">edit</span> Sửa</button>
-                <button class="btn-action delete" (click)="deleteCategory(cat.id)"><span class="material-icons">block</span> Ngừng dùng</button>
+                @if (cat.isDeleted) {
+                  <button class="btn-action edit" (click)="restoreCategory(cat.id)"><span class="material-icons">restore</span> Khôi phục</button>
+                } @else {
+                  <button class="btn-action edit" (click)="openEdit(cat)"><span class="material-icons">edit</span> Sửa</button>
+                  <button class="btn-action delete" (click)="deleteCategory(cat.id)"><span class="material-icons">delete</span> Xóa</button>
+                }
               </td>
             </tr>
           }
@@ -77,7 +81,7 @@
           <select [(ngModel)]="form.parentId" name="catParent">
             <option [ngValue]="null">— Danh mục gốc —</option>
             @for (c of categories(); track c.id) {
-              @if (c.id !== editingId) {
+              @if (c.id !== editingId && !c.isDeleted && c.isActive) {
                 <option [value]="c.id">{{ c.name }}</option>
               }
             }

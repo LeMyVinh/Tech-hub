@@ -68,10 +68,23 @@ public sealed class AdminCategoryController : ControllerBase
         }
     }
 
+    [HttpPut("{id:int}/restore")]
+    public async Task<IActionResult> Restore(int id)
+    {
+        try
+        {
+            return Ok(new { message = await _categoryService.RestoreAsync(id) });
+        }
+        catch (CatalogException ex)
+        {
+            return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _categoryService.GetAllAsync(includeInactive: true);
+        var result = await _categoryService.GetAllAsync(includeInactive: true, includeDeleted: true);
         return Ok(result);
     }
 }

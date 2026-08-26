@@ -40,15 +40,23 @@ public sealed class ProductImageRepository : IProductImageRepository
         return Task.CompletedTask;
     }
 
-    public Task DeleteAsync(ProductImage image)
+    public Task SoftDeleteAsync(ProductImage image)
     {
-        _db.ProductImages.Remove(image);
+        image.IsDeleted = true;
+        image.DeletedAt = DateTime.UtcNow;
+        _db.ProductImages.Update(image);
         return Task.CompletedTask;
     }
 
-    public Task DeleteRangeAsync(IEnumerable<ProductImage> images)
+    public Task SoftDeleteRangeAsync(IEnumerable<ProductImage> images)
     {
-        _db.ProductImages.RemoveRange(images);
+        var now = DateTime.UtcNow;
+        foreach (var img in images)
+        {
+            img.IsDeleted = true;
+            img.DeletedAt = now;
+        }
+        _db.ProductImages.UpdateRange(images);
         return Task.CompletedTask;
     }
 

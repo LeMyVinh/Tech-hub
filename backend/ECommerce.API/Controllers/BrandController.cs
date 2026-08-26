@@ -17,7 +17,7 @@ public sealed class BrandController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var result = await _brandService.GetAllAsync(includeInactive: false);
+        var result = await _brandService.GetAllAsync();
         return Ok(result);
     }
 
@@ -25,8 +25,8 @@ public sealed class BrandController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _brandService.GetByIdAsync(id);
-        if (result == null || !result.IsActive)
-            return NotFound(new { message = "Thương hiệu không tồn tại hoặc đã bị ẩn." });
+        if (result == null || result.IsDeleted)
+            return NotFound(new { message = "Thương hiệu không tồn tại hoặc đã bị xóa." });
 
         return Ok(result);
     }

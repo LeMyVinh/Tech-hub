@@ -19,16 +19,19 @@ public sealed class BrandRepository : IBrandRepository
         return await _db.Brands.FirstOrDefaultAsync(b => b.Id == id);
     }
 
-    public async Task<List<Brand>> GetAllAsync(bool includeInactive = false)
+    public Task<Brand?> GetByIdIncludingDeletedAsync(int id) =>
+        _db.Brands.IgnoreQueryFilters().FirstOrDefaultAsync(b => b.Id == id);
+
+    public async Task<List<Brand>> GetAllAsync(bool includeDeleted = false)
     {
-        var query = _db.Brands.AsQueryable();
+        var query = includeDeleted
+            ? _db.Brands.IgnoreQueryFilters().AsQueryable()
+            : _db.Brands.AsQueryable();
 
-        if (!includeInactive)
-        {
-            query = query.Where(b => b.IsActive == true);
-        }
-
-        return await query.ToListAsync();
+        return await query
+            .OrderBy(b => b.IsDeleted)
+            .ThenBy(b => b.Name)
+            .ToListAsync();
     }
 
     public async Task<bool> ExistsByNameAsync(string name, int? excludeId = null)
@@ -53,6 +56,31 @@ public sealed class BrandRepository : IBrandRepository
     {
         _db.Brands.Update(brand);
         return Task.CompletedTask;
+    }
+
+    public async Task SoftDeleteAsync(Brand brand)
+    {
+        var now = DateTime.UtcNow;
+        var rows = await _db.Brands.IgnoreQueryFilters()
+            .Where(b => b.Id == brand.Id && !b.IsDeleted)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(b => b.IsDeleted, true)
+                .SetProperty(b => b.DeletedAt, now));
+
+        if (rows == 0 && !brand.IsDeleted)
+            throw new InvalidOperationException($"Không thể soft delete brand #{brand.Id}.");
+    }
+
+    public async Task RestoreAsync(Brand brand)
+    {
+        var rows = await _db.Brands.IgnoreQueryFilters()
+            .Where(b => b.Id == brand.Id && b.IsDeleted)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(b => b.IsDeleted, false)
+                .SetProperty(b => b.DeletedAt, (DateTime?)null));
+
+        if (rows == 0 && brand.IsDeleted)
+            throw new InvalidOperationException($"Không thể khôi phục brand #{brand.Id}.");
     }
 
     public async Task SaveChangesAsync()
