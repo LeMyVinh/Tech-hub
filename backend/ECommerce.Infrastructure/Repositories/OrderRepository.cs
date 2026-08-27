@@ -21,6 +21,7 @@ public class OrderRepository : IOrderRepository
     public async Task<Order?> GetByIdWithDetailsAsync(int id)
     {
         return await _context.Orders
+            .IgnoreQueryFilters()
             .Include(o => o.OrderItems)
                 .ThenInclude(i => i.ProductVariant)
                     .ThenInclude(v => v.Product)
@@ -33,22 +34,11 @@ public class OrderRepository : IOrderRepository
             .FirstOrDefaultAsync(o => o.Id == id);
     }
 
-    /// <summary>
-    /// SECURITY FIX (Review IDOR): trước đây ReviewService gọi nhầm GetByIdAsync(orderItemId)
-    /// -- một hàm tìm theo Order.Id -- để tra cứu OrderItem, nên không có cách nào xác minh
-    /// review có thuộc đúng đơn hàng/đúng người dùng/đúng trạng thái Delivered hay không.
-    /// Hàm này trả về đúng OrderItem, kèm Order (để check UserId/Status) và ProductVariant
-    /// (để đối chiếu ProductId client gửi lên) trong một lần truy vấn.
-    ///
-    /// FIX (500 - NullReferenceException trong ReviewService.MapToResponse):
-    /// thêm .ThenInclude(o => o.User) vì ReviewService.CreateReviewAsync cần gán
-    /// review.User = orderItem.Order.User sau khi tạo review (entity Review mới
-    /// AddAsync không tự có navigation User). Thiếu include này khiến
-    /// orderItem.Order.User luôn null, dẫn tới NullReferenceException khi map response.
-    /// </summary>
+
     public async Task<OrderItem?> GetOrderItemWithDetailsAsync(int orderItemId)
     {
         return await _context.OrderItems
+            .IgnoreQueryFilters()
             .Include(oi => oi.Order)
                 .ThenInclude(o => o.User)
             .Include(oi => oi.ProductVariant)
@@ -58,6 +48,7 @@ public class OrderRepository : IOrderRepository
     public async Task<List<Order>> GetUserOrdersAsync(int userId, int page, int pageSize)
     {
         return await _context.Orders
+            .IgnoreQueryFilters()
             .Include(o => o.OrderItems)
                 .ThenInclude(i => i.ProductVariant)
                     .ThenInclude(v => v.Product)
@@ -76,6 +67,7 @@ public class OrderRepository : IOrderRepository
     public async Task<List<Order>> GetAllOrdersAsync(int page, int pageSize, string? status)
     {
         var query = _context.Orders
+            .IgnoreQueryFilters()
             .Include(o => o.OrderItems)
                 .ThenInclude(i => i.ProductVariant)
                     .ThenInclude(v => v.Product)

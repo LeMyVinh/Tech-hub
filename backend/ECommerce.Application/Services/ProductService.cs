@@ -48,11 +48,6 @@ public sealed class ProductService : IProductService
         if (request.Variants == null || request.Variants.Count == 0)
             throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
 
-        // FIX (bug report #3): trước đây chỉ kiểm tra SKU trùng với DB
-        // (ExistsBySkuAsync), không phát hiện được trường hợp 2 dòng biến thể MỚI
-        // trong CÙNG một request có SKU trùng nhau -> DbUpdateException (unique
-        // index) văng thẳng ra ngoài thành lỗi 500 thô cho Admin. Kiểm tra trùng
-        // lặp ngay trong payload trước khi chạm DB.
         var duplicateSkuInRequest = request.Variants
             .Select(v => v.Sku?.Trim().ToLowerInvariant())
             .Where(s => !string.IsNullOrEmpty(s))
@@ -144,9 +139,6 @@ public sealed class ProductService : IProductService
         if (request.Variants == null || request.Variants.Count == 0)
             throw new CatalogException(400, "Sản phẩm phải có ít nhất một biến thể.");
 
-        // FIX (bug report #3): cùng lý do như CreateAsync — chặn SKU trùng lặp
-        // NGAY TRONG payload (bao gồm cả các dòng chỉnh sửa lẫn dòng mới thêm)
-        // trước khi kiểm tra với DB, để trả lỗi 400 rõ ràng thay vì 500 thô.
         var duplicateSkuInRequest = request.Variants
             .Select(v => v.Sku?.Trim().ToLowerInvariant())
             .Where(s => !string.IsNullOrEmpty(s))
@@ -207,9 +199,6 @@ public sealed class ProductService : IProductService
 
         if (toRemoveVariants.Count > 0)
         {
-            // SOFT DELETE: thay vì RemoveRange (sẽ fail FK nếu còn OrderItem/CartItem
-            // tham chiếu dù 2 hàm check ở trên đã chặn, vẫn an toàn hơn khi soft delete).
-            // Biến thể "xóa" sẽ ẩn khỏi query mặc định, có thể khôi phục nếu cần.
             await _variantRepository.SoftDeleteRangeAsync(toRemoveVariants);
         }
 
@@ -249,7 +238,6 @@ public sealed class ProductService : IProductService
         var toRemoveImages = existingImages.Where(img => !requestImageIds.Contains(img.Id)).ToList();
         if (toRemoveImages.Count > 0)
         {
-            // SOFT DELETE: tương tự variant — ẩn ảnh thay vì xóa cứng, có thể khôi phục.
             await _imageRepository.SoftDeleteRangeAsync(toRemoveImages);
         }
 
@@ -289,16 +277,10 @@ public sealed class ProductService : IProductService
 
     public async Task<string> DeleteAsync(int id)
     {
-        // includeInactive: true để tìm được cả sản phẩm đã bị ẩn trước đó.
-        // Tuy nhiên Global Query Filter vẫn ẩn các bản ghi IsDeleted=true, nên nếu
-        // sản phẩm đã bị xóa mềm từ trước thì GetByIdAsync sẽ trả về null — hành vi
-        // đúng (gọi lại Delete trên bản ghi đã xóa -> 404).
         var product = await _productRepository.GetByIdAsync(id, includeInactive: true);
         if (product == null)
             throw new CatalogException(404, "Sản phẩm không tồn tại.");
 
-        // Soft delete luôn được dùng, kể cả khi sản phẩm đã có đơn hàng: bản ghi
-        // vẫn còn nguyên trong DB nên không làm mất liên kết lịch sử OrderItem.
         await _productRepository.SoftDeleteAsync(product);
         await _productRepository.SaveChangesAsync();
 
@@ -359,8 +341,8 @@ public sealed class ProductService : IProductService
             product.BrandId,
             product.Brand.Name,
             product.Status,
-            product.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
-            product.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            product.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity, v.IsDeleted)).ToList(),
+            product.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary, img.IsDeleted)).ToList(),
             Math.Round(avgRating, 1),
             totalReviewCount,
             approvedReviews
@@ -378,8 +360,8 @@ public sealed class ProductService : IProductService
             p.BrandId,
             p.Brand.Name,
             p.Status,
-            p.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity)).ToList(),
-            p.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary)).ToList(),
+            p.ProductVariants.Select(v => new ProductVariantResponse(v.Id, v.VariantName, v.Sku, v.Price, v.StockQuantity, v.IsDeleted)).ToList(),
+            p.ProductImages.Select(img => new ProductImageResponse(img.Id, img.ImageUrl, img.IsPrimary, img.IsDeleted)).ToList(),
             p.CreatedAt
         );
     }

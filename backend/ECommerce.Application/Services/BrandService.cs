@@ -62,8 +62,22 @@ public sealed class BrandService : IBrandService
         if (brand == null)
             throw new CatalogException(404, "Thương hiệu không tồn tại.");
 
-        // SOFT DELETE: cho phép xóa kể cả khi còn sản phẩm — dữ liệu vẫn giữ nguyên
-        // qua FK, thương hiệu chỉ bị ẩn khỏi catalog và admin có thể khôi phục sau.
+        // FIX (TC-06): trước đây Brand cho xóa ngay cả khi còn sản phẩm đang kinh doanh
+        // (Active) thuộc thương hiệu đó, trong khi Category đã có sẵn cơ chế chặn này
+        // (HasActiveProductsAsync). Vì ProductRepository lọc sản phẩm hiển thị công khai
+        // theo điều kiện "_db.Brands.Any(b => b.Id == p.BrandId)" (Brand có Global Query
+        // Filter !IsDeleted), xóa mềm Brand khiến TOÀN BỘ sản phẩm thuộc brand đó biến mất
+        // khỏi trang khách hàng NGAY LẬP TỨC dù bản thân Product.Status vẫn là "Active" --
+        // và Admin không hề được cảnh báo gì, dễ hiểu nhầm là bug/mất dữ liệu. Đồng bộ hành
+        // vi với CategoryService: chặn xóa nếu còn sản phẩm Active, buộc Admin chuyển sản
+        // phẩm sang thương hiệu khác trước.
+        var hasActiveProducts = await _brandRepository.HasActiveProductsAsync(id);
+        if (hasActiveProducts)
+        {
+            throw new CatalogException(400,
+                "Không thể xóa thương hiệu đang có sản phẩm đang kinh doanh. Vui lòng chuyển sản phẩm sang thương hiệu khác trước khi xóa.");
+        }
+
         await _brandRepository.SoftDeleteAsync(brand);
 
         return "Đã xóa thương hiệu thành công.";

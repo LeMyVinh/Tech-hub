@@ -20,7 +20,11 @@ public sealed record ProductVariantResponse(
     string VariantName,
     string Sku,
     decimal Price,
-    int StockQuantity
+    int StockQuantity,
+    // FIX: cho phép trang Admin (includeDeleted=true) phân biệt biến thể còn hoạt động
+    // với biến thể đã bị soft-delete, vì giờ đây IgnoreQueryFilters() ở ProductRepository
+    // có thể trả về cả hai loại lẫn lộn trong cùng danh sách.
+    bool IsDeleted = false
 );
 
 public sealed record CreateProductImageDto(
@@ -37,7 +41,9 @@ public sealed record UpdateProductImageDto(
 public sealed record ProductImageResponse(
     int Id,
     string ImageUrl,
-    bool IsPrimary
+    bool IsPrimary,
+    // FIX: tương tự ProductVariantResponse, để Admin thấy ảnh nào đã bị xóa mềm.
+    bool IsDeleted = false
 );
 
 public sealed record CreateProductRequest(
@@ -117,9 +123,6 @@ public sealed record ProductDetailResponse(
     List<ProductVariantResponse> Variants,
     List<ProductImageResponse> Images,
     double AvgRating,
-    // FIX: tổng số đánh giá đã duyệt (không giới hạn theo trang), tách riêng khỏi
-    // Reviews (chỉ chứa một trang review mới nhất) để FE hiển thị đúng số lượng
-    // thật thay vì đếm nhầm theo độ dài mảng đã bị giới hạn.
     int ReviewCount,
     List<ApprovedReviewSummaryResponse> Reviews
 );

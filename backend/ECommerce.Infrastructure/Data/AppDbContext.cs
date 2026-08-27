@@ -236,8 +236,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.ShippingMethod)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("'Standard'");
-            // BUG FIX: cột mới lưu phí vận chuyển thực tế được backend tính (không tin
-            // số tiền FE gửi lên) — xem OrderService.ResolveShippingFee.
             entity.Property(e => e.ShippingFee)
                 .HasPrecision(15, 2)
                 .HasDefaultValueSql("'0.00'");
@@ -249,11 +247,6 @@ public partial class AppDbContext : DbContext
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
-            // FIX (đơn hàng bị đổi theo địa chỉ mới): mapping cho các cột snapshot
-            // địa chỉ mới thêm vào Order. Các cột này được ghi 1 lần duy nhất khi tạo
-            // đơn (OrderService.CreateOrderAsync) và không phụ thuộc vào bảng Address
-            // nữa khi hiển thị chi tiết đơn hàng, nên nếu khách sửa lại Address gốc
-            // sau này, đơn hàng cũ vẫn hiển thị đúng địa chỉ đã dùng để giao hàng.
             entity.Property(e => e.RecipientName).HasMaxLength(150);
             entity.Property(e => e.Phone).HasMaxLength(20);
             entity.Property(e => e.Province).HasMaxLength(100);
@@ -353,8 +346,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnType("datetime");
             entity.Property(e => e.Method).HasColumnType("enum('COD','VNPay')");
             entity.Property(e => e.PaidAt).HasColumnType("datetime");
-            // BUG FIX: thêm trạng thái 'Refunded' — khi Admin hủy đơn đã thanh toán VNPay
-            // thành công, hệ thống đánh dấu cần hoàn tiền thay vì im lặng bỏ qua.
             entity.Property(e => e.Status)
                 .HasDefaultValueSql("'Pending'")
                 .HasColumnType("enum('Pending','Success','Failed','Refunded')");
@@ -417,6 +408,16 @@ public partial class AppDbContext : DbContext
 
             entity.Property(e => e.ImageUrl).HasMaxLength(500);
 
+            // FIX (TC-04): ProductImage có cột IsDeleted nhưng trước đây không có
+            // Global Query Filter, nên ảnh đã "xóa" (SoftDeleteAsync) vẫn hiển thị
+            // bình thường trên storefront/gallery. Thêm filter để mọi truy vấn mặc
+            // định tự động ẩn ảnh đã xóa; trang Admin (includeDeleted=true) dùng
+            // IgnoreQueryFilters() ở ProductRepository để vẫn thấy được.
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
+
             entity.HasOne(d => d.Product).WithMany(p => p.ProductImages)
                 .HasForeignKey(d => d.ProductId)
                 .HasConstraintName("fk_image_product");
@@ -442,6 +443,22 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("SKU");
             entity.Property(e => e.VariantName).HasMaxLength(255);
+
+            // FIX (TC-03 / TC-05): ProductVariant có cột IsDeleted nhưng trước đây
+            // KHÔNG có Global Query Filter, khiến biến thể đã xóa vẫn: (1) hiển thị
+            // ở trang chi tiết sản phẩm, (2) thêm được vào giỏ hàng / đặt hàng
+            // (CartService/OrderService chỉ check Product.Status, không check
+            // variant.IsDeleted), (3) chặn nhầm việc tạo lại SKU trùng với SKU đã
+            // xóa (ExistsBySkuAsync không loại trừ variant đã xóa). Thêm filter ở
+            // đây fix cả 3 vấn đề cùng lúc vì mọi query mặc định (bao gồm
+            // GetByIdAsync dùng trong Cart/Order, ExistsBySkuAsync, Include trong
+            // ProductRepository) đều tự động loại trừ variant đã xóa. Trang Admin
+            // (includeDeleted=true) vẫn thấy được nhờ IgnoreQueryFilters() ở
+            // ProductRepository.GetWithDetailsAsync/SearchAsync.
+            entity.Property(e => e.IsDeleted).IsRequired();
+            entity.Property(e => e.DeletedAt).HasColumnType("datetime");
+
+            entity.HasQueryFilter(e => !e.IsDeleted);
 
             entity.HasOne(d => d.Product).WithMany(p => p.ProductVariants)
                 .HasForeignKey(d => d.ProductId)
@@ -490,11 +507,6 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("'Pending'")
                 .HasColumnType("enum('Pending','Approved','Rejected')");
 
-            // SOFT DELETE: cho phép Admin "xóa" đánh giá (làm mờ khỏi trang chi tiết
-            // sản phẩm) mà vẫn khôi phục được sau này, giống pattern Brand/Category/
-            // Product/User. Global Query Filter tự động ẩn review đã xóa khỏi mọi
-            // truy vấn mặc định (kể cả GetAverageRatingAsync, GetByProductIdAsync...),
-            // trang quản trị dùng IgnoreQueryFilters() để vẫn thấy được nhằm khôi phục.
             entity.Property(e => e.IsDeleted).IsRequired();
             entity.Property(e => e.DeletedAt).HasColumnType("datetime");
 
@@ -567,15 +579,9 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime");
 
-            // SOFT DELETE: không dùng HasDefaultValueSql — EF Core có thể không ghi
-            // IsDeleted=true khi update nếu cấu hình sentinel/default sai.
             entity.Property(e => e.IsDeleted).IsRequired();
             entity.Property(e => e.DeletedAt).HasColumnType("datetime");
 
-            // Global query filter: mọi truy vấn User (kể cả qua navigation như
-            // Order.User, Review.User...) tự động loại user đã xóa mềm, không cần
-            // sửa từng chỗ gọi GetByIdAsync/GetAllAsync. Muốn lấy cả user đã xóa
-            // (vd. audit) thì gọi .IgnoreQueryFilters() ở nơi cần.
             entity.HasQueryFilter(e => !e.IsDeleted);
 
             entity.HasOne(d => d.Role).WithMany(p => p.Users)

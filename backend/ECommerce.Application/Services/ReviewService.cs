@@ -5,8 +5,6 @@ namespace ECommerce.Application;
 public class ReviewService : IReviewService
 {
     private const int MaxReviewImages = 5;
-
-    // FIX (bug report #5): giới hạn độ dài Comment để chống spam nội dung khổng lồ.
     private const int MaxCommentLength = 2000;
 
     private readonly IReviewRepository _reviewRepository;
@@ -29,9 +27,20 @@ public class ReviewService : IReviewService
         if (request.ImageUrls != null && request.ImageUrls.Count > MaxReviewImages)
             throw new ReviewException(400, $"Chỉ được tải lên tối đa {MaxReviewImages} hình ảnh cho mỗi đánh giá.");
 
+        // FIX (TC-09): GetByOrderItemIdAsync giờ dùng IgnoreQueryFilters() nên sẽ tìm thấy
+        // review cũ NGAY CẢ KHI nó đã bị Admin xóa mềm trước đó. Vì Review.OrderItemId có
+        // UNIQUE INDEX ở tầng DB (một sản phẩm trong đơn chỉ được review đúng 1 lần, kể cả
+        // sau khi review đó bị xóa), business rule ở đây là: KHÔNG cho review lại một khi
+        // đã review, dù review cũ có bị Admin ẩn đi. Điều này chặn từ tầng ứng dụng (400
+        // thân thiện) thay vì để rơi xuống tầng DB (DbUpdateException -> 500 thô như trước).
         var existingReview = await _reviewRepository.GetByOrderItemIdAsync(request.OrderItemId);
         if (existingReview is not null)
-            throw new ReviewException(400, "Bạn đã đánh giá sản phẩm này rồi.");
+        {
+            var message = existingReview.IsDeleted
+                ? "Bạn đã đánh giá sản phẩm này trước đây (đánh giá đã bị quản trị viên gỡ bỏ) nên không thể gửi đánh giá mới cho sản phẩm này."
+                : "Bạn đã đánh giá sản phẩm này rồi.";
+            throw new ReviewException(400, message);
+        }
 
         var orderItem = await _orderRepository.GetOrderItemWithDetailsAsync(request.OrderItemId);
         if (orderItem is null)
@@ -96,9 +105,6 @@ public class ReviewService : IReviewService
         );
     }
 
-    // ADMIN: lấy TOÀN BỘ đánh giá (mọi Status, kể cả đã xóa mềm) để trang quản trị
-    // hiển thị đầy đủ — review đã xóa vẫn có mặt trong danh sách (FE làm mờ) thay vì
-    // biến mất hoàn toàn, giống UserService.GetAllUsersAsync.
     public async Task<ReviewListResponse> GetAllReviewsAsync(int page, int pageSize)
     {
         var reviews = await _reviewRepository.GetAllReviewsAsync(page, pageSize);
@@ -142,11 +148,6 @@ public class ReviewService : IReviewService
         return MapToResponse(review);
     }
 
-    // SOFT DELETE: Admin có thể xóa mềm bất kỳ đánh giá nào (Pending/Approved/
-    // Rejected). Đánh giá bị ẩn khỏi trang chi tiết sản phẩm và không tính vào
-    // điểm trung bình (nhờ Global Query Filter), nhưng vẫn còn trong DB để khôi
-    // phục lại sau. Dùng GetByIdIncludingDeletedAsync để tránh trường hợp gọi xóa
-    // 2 lần liên tiếp (review đã xóa sẽ không lọt qua GetByIdAsync thường).
     public async Task<ReviewResponse> DeleteReviewAsync(int reviewId)
     {
         var review = await _reviewRepository.GetByIdIncludingDeletedAsync(reviewId)
@@ -160,8 +161,6 @@ public class ReviewService : IReviewService
         return MapToResponse(review);
     }
 
-    // RESTORE: khôi phục đánh giá đã xóa mềm, hiển thị lại bình thường trên trang
-    // sản phẩm (nếu Status = Approved) và được tính lại vào điểm trung bình.
     public async Task<ReviewResponse> RestoreReviewAsync(int reviewId)
     {
         var review = await _reviewRepository.GetByIdIncludingDeletedAsync(reviewId)

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using ECommerce.Application;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.API.Controllers;
 
@@ -30,6 +31,15 @@ public sealed class ReviewController : ControllerBase
         catch (ReviewException ex)
         {
             return StatusCode(ex.StatusCode, new { message = ex.Message });
+        }
+        catch (DbUpdateException)
+        {
+            // FIX (TC-09 - safety net): dù ReviewService.CreateReviewAsync giờ đã tự phát
+            // hiện review trùng (kể cả review đã bị xóa mềm) và chặn từ trước bằng
+            // ReviewException, vẫn giữ lại catch này làm lớp phòng thủ cuối cùng cho race
+            // condition (2 request gửi review cho cùng OrderItem gần như đồng thời), để
+            // không bao giờ lộ ra 500 thô cho khách hàng.
+            return Conflict(new { message = "Sản phẩm này vừa được đánh giá ở một thao tác khác. Vui lòng tải lại trang." });
         }
     }
 
@@ -63,9 +73,6 @@ public sealed class ReviewController : ControllerBase
         }
     }
 
-    // ADMIN: danh sách TOÀN BỘ đánh giá (mọi trạng thái, bao gồm cả đã xóa mềm) —
-    // dùng cho trang Kiểm duyệt Đánh giá hiển thị full danh sách kèm chức năng
-    // Xóa/Khôi phục, tương tự GET /admin/users.
     [HttpGet("admin/reviews")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAllReviews([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
@@ -111,8 +118,6 @@ public sealed class ReviewController : ControllerBase
         }
     }
 
-    // SOFT DELETE: xóa mềm đánh giá — bị ẩn khỏi trang sản phẩm và điểm trung
-    // bình, nhưng vẫn còn trong DB để khôi phục.
     [HttpDelete("admin/reviews/{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteReview(int id)
@@ -128,7 +133,6 @@ public sealed class ReviewController : ControllerBase
         }
     }
 
-    // RESTORE: khôi phục đánh giá đã bị xóa mềm.
     [HttpPut("admin/reviews/{id:int}/restore")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> RestoreReview(int id)
