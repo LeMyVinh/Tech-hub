@@ -88,7 +88,7 @@ public class WishlistService : IWishlistService
 
         await _wishlistRepository.SoftDeleteAsync(item);
         await _wishlistRepository.SaveChangesAsync();
-        return await GetWishlistAsync(userId);
+        return await GetWishlistAsync(userId, includeDeleted: true);
     }
 
     public async Task<WishlistResponse> RestoreWishlistItemAsync(int userId, int productId)
