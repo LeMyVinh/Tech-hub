@@ -62,15 +62,6 @@ public partial class AppDbContext : DbContext
         modelBuilder
             .UseCollation("utf8mb4_unicode_ci")
             .HasCharSet("utf8mb4");
-
-        // === FIX: MySQL/Pomelo trả về DateTime với Kind=Unspecified, khiến khi
-        // serialize sang JSON chuỗi thời gian không có hậu tố 'Z' (UTC marker).
-        // Angular DatePipe khi đó hiểu nhầm đây là giờ local của trình duyệt
-        // và hiển thị nguyên văn -> lệch 7 tiếng so với giờ VN thực tế (vì toàn
-        // bộ code backend đang lưu bằng DateTime.UtcNow).
-        // Đoạn dưới đây ép mọi cột DateTime/DateTime? khi đọc từ DB lên đều
-        // được gắn nhãn Kind=Utc, áp dụng tự động cho TẤT CẢ entity/property
-        // mà không cần khai báo lặp lại ở từng bảng.
         var utcDateTimeConverter = new ValueConverter<DateTime, DateTime>(
             v => v,
             v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
@@ -198,13 +189,8 @@ public partial class AppDbContext : DbContext
         modelBuilder.Entity<EmailVerificationToken>(entity =>
 {
     entity.HasKey(e => e.Id).HasName("PRIMARY");
-
     entity.ToTable("EmailVerificationToken");
-
-    // OTP: không còn unique toàn hệ thống, chỉ unique/tra cứu theo (UserId, Token)
-    // vì mã OTP 6 số có thể trùng giữa nhiều user khác nhau.
     entity.HasIndex(e => new { e.UserId, e.Token }, "idx_emailverify_user_token");
-
     entity.Property(e => e.CreatedAt)
         .HasDefaultValueSql("CURRENT_TIMESTAMP")
         .HasColumnType("datetime");
@@ -443,18 +429,6 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("SKU");
             entity.Property(e => e.VariantName).HasMaxLength(255);
-
-            // FIX (TC-03 / TC-05): ProductVariant có cột IsDeleted nhưng trước đây
-            // KHÔNG có Global Query Filter, khiến biến thể đã xóa vẫn: (1) hiển thị
-            // ở trang chi tiết sản phẩm, (2) thêm được vào giỏ hàng / đặt hàng
-            // (CartService/OrderService chỉ check Product.Status, không check
-            // variant.IsDeleted), (3) chặn nhầm việc tạo lại SKU trùng với SKU đã
-            // xóa (ExistsBySkuAsync không loại trừ variant đã xóa). Thêm filter ở
-            // đây fix cả 3 vấn đề cùng lúc vì mọi query mặc định (bao gồm
-            // GetByIdAsync dùng trong Cart/Order, ExistsBySkuAsync, Include trong
-            // ProductRepository) đều tự động loại trừ variant đã xóa. Trang Admin
-            // (includeDeleted=true) vẫn thấy được nhờ IgnoreQueryFilters() ở
-            // ProductRepository.GetWithDetailsAsync/SearchAsync.
             entity.Property(e => e.IsDeleted).IsRequired();
             entity.Property(e => e.DeletedAt).HasColumnType("datetime");
 
@@ -558,7 +532,8 @@ public partial class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
-            entity.ToTable("User");
+            entity.ToTable("User"); 
+            entity.Property(e => e.RoleId).HasDefaultValue(2);
 
             entity.HasIndex(e => e.Email, "Email").IsUnique();
 
