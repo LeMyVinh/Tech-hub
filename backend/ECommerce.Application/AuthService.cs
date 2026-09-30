@@ -114,10 +114,6 @@ public class AuthService : IAuthService
             await _users.SaveChangesAsync();
             throw new AuthException(401, "Sai email hoặc mật khẩu.");
         }
-
-        // SOFT DELETE: GetByEmailAsync đi qua HasQueryFilter nên user đã IsDeleted
-        // trả về null -> đã bị chặn từ trước. Check dưới chỉ là lớp phòng thủ nếu
-        // tương lai có code path nào lookup user bỏ qua filter.
         if (user.IsDeleted)
             throw new AuthException(403, "Tài khoản đã bị xóa và không thể đăng nhập.");
 
@@ -197,8 +193,7 @@ public class AuthService : IAuthService
 
         await _refreshTokens.RevokeAllByUserIdAsync(resetToken.UserId);
     }
-
-    public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
+   public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request)
     {
         var oldPassword = Require(request.OldPassword, "Mật khẩu hiện tại không được để trống.");
         ValidatePassword(request.NewPassword);

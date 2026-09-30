@@ -6,11 +6,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace ECommerce.Infrastructure.Auth;
-
-/// <summary>
-/// Gửi link đặt lại mật khẩu qua SMTP (EmailSettings).
-/// Nếu chưa cấu hình SMTP, chỉ log link (phù hợp Development).
-/// </summary>
 public sealed class PasswordResetEmailSender : IPasswordResetEmailSender
 {
     private readonly IConfiguration _configuration;

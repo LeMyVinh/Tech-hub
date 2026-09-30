@@ -14,6 +14,7 @@ public sealed class AuthController : ControllerBase
     public AuthController(IAuthService authService) => _authService = authService;
 
     [HttpPost("register")]
+
     [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
     public async Task<IActionResult> Register(RegisterRequest request)
     {

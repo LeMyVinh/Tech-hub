@@ -13,4 +13,4 @@ public interface IAuthService
     // EMAIL VERIFICATION
     Task VerifyEmailAsync(VerifyEmailRequest request);
     Task ResendVerificationEmailAsync(ResendVerificationEmailRequest request);
-}
+} 

@@ -22,16 +22,6 @@ export class RegisterComponent {
     confirmPassword: '',
     phone: '',
   };
-
-  // Đồng bộ với rule validate phía backend:
-  // - Họ tên: chỉ chữ cái Unicode (bao gồm tiếng Việt) và khoảng trắng.
-  // - Họ tên phải có ít nhất 2 từ.
-  // - Tổng độ dài từ 2-150 ký tự.
-  // - Không chứa số hoặc ký tự đặc biệt.
-  // - Email: đúng định dạng, tối đa 254 ký tự.
-  // - SĐT: không bắt buộc, nhưng nếu nhập phải đủ 10 số và bắt đầu bằng 0.
-  // - Mật khẩu: 6-100 ký tự, có ít nhất 1 chữ hoa và 1 chữ số.
-
   readonly fullNamePattern = /^[\p{L}]+(?: [\p{L}]+)+$/u;
   readonly emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   readonly phonePattern = /^0[0-9]{9}$/;

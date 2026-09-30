@@ -24,10 +24,6 @@ public partial class Address
     public bool IsDefault { get; set; }
 
     public DateTime CreatedAt { get; set; }
-
-    // SOFT DELETE: Address có FK từ Order (lịch sử đơn hàng) nên xóa cứng sẽ vi phạm
-    // FK constraint hoặc cascade xóa mất đơn. Soft delete giữ địa chỉ cho lịch sử
-    // nhưng ẩn khỏi danh sách địa chỉ hiện tại của user.
     public bool IsDeleted { get; set; }
 
     public DateTime? DeletedAt { get; set; }
